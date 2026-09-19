@@ -1629,19 +1629,23 @@
     }
 
     function renderizarVinculacao() {
-        const div = document.getElementById('conteudoVinculacao');
-        const pendentes = vinculacaoFila.filter(r => r.status === 'pendente');
+    const div = document.getElementById('conteudoVinculacao');
+    const pendentes = vinculacaoFila.filter(r => r.status === 'pendente');
 
-        document.getElementById('qtdFila').innerText = pendentes.length;
-        document.getElementById('statsVinculacao').innerText =
-            `${vinculacaoFila.length} itens no total · ${pendentes.length} pendentes`;
-        document.getElementById('localAtualTexto').innerText =
-            localVinculoAtual || '— não definido —';
+    const qtdFilaEl = document.getElementById('qtdFila');
+    if (qtdFilaEl) qtdFilaEl.innerText = pendentes.length;
 
-        if (!vinculacaoFila.length) {
-            div.innerHTML = '<div class="vazio">Nenhum item. Clique em "Ler Produto" para começar.</div>';
-            return;
-        }
+    const statsEl = document.getElementById('statsVinculacao');
+    if (statsEl) statsEl.innerText =
+        `${vinculacaoFila.length} itens no total · ${pendentes.length} pendentes`;
+
+    const localEl = document.getElementById('localAtualTexto');
+    if (localEl) localEl.innerText = localVinculoAtual || '— não definido —';
+
+    if (!vinculacaoFila.length) {
+        div.innerHTML = '<div class="vazio">Nenhum item. Clique em "Ler Produto" para começar.</div>';
+        return;
+    }
 
         const ordenados = [...vinculacaoFila].sort(
             (a, b) => new Date(b.dataHora) - new Date(a.dataHora)
