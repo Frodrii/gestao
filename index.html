@@ -1,0 +1,1827 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
+    <title>📊 Gestão de Setor</title>
+    <link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#2563eb">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Gestão">
+<link rel="apple-touch-icon" href="icon-192.png">
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Segoe UI', Roboto, Arial, sans-serif;
+            background: #f8fafc;
+            padding: 16px;
+            color: #0f172a;
+            line-height: 1.5;
+        }
+        .container { max-width: 1400px; margin: 0 auto; }
+
+        .dashboard {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+        .card-dash {
+            background: white;
+            border-radius: 24px;
+            padding: 20px;
+            flex: 1;
+            min-width: 180px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+            border: 1px solid #e2e8f0;
+            text-align: center;
+        }
+        .card-dash h3 {
+            font-size: 0.9rem;
+            color: #475569;
+            margin-bottom: 8px;
+            font-weight: 500;
+        }
+        .card-dash .valor {
+            font-size: 2.2rem;
+            font-weight: 700;
+            color: #0f172a;
+        }
+
+        .topo {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+        .global-search {
+            background: white;
+            border-radius: 40px;
+            padding: 8px 20px;
+            border: 1px solid #cbd5e1;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex: 2;
+        }
+        .global-search input {
+            border: none;
+            padding: 10px;
+            font-size: 1rem;
+            width: 100%;
+            outline: none;
+        }
+        .limite-estoque {
+            background: white;
+            border-radius: 40px;
+            padding: 8px 16px;
+            border: 1px solid #cbd5e1;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .limite-estoque label {
+            font-size: 0.85rem;
+            font-weight: 500;
+        }
+        .limite-estoque input {
+            width: 70px;
+            padding: 6px;
+            border: 1px solid #cbd5e1;
+            border-radius: 20px;
+            text-align: center;
+        }
+        .topo-data {
+            text-align: center;
+            background: #eef2ff;
+            padding: 8px;
+            border-radius: 30px;
+            font-size: 0.85rem;
+            color: #1e40af;
+            margin-bottom: 20px;
+            border: 1px solid #c7d2fe;
+        }
+        h1 {
+            text-align: center;
+            color: #0f172a;
+            font-size: 1.8rem;
+            margin-bottom: 12px;
+            font-weight: 600;
+        }
+
+        .abas {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 24px;
+            border-bottom: 2px solid #e2e8f0;
+            padding-bottom: 8px;
+            flex-wrap: wrap;
+            position: sticky;
+            top: 0;
+            background: #f8fafc;
+            z-index: 20;
+            padding-top: 4px;
+        }
+        .aba-btn {
+            background: none;
+            border: none;
+            padding: 10px 20px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: #64748b;
+            cursor: pointer;
+            border-radius: 12px 12px 0 0;
+            transition: all 0.2s;
+        }
+        .aba-btn.ativo {
+            color: #2563eb;
+            background: #eff6ff;
+            border-bottom: 3px solid #2563eb;
+            margin-bottom: -2px;
+        }
+        .conteudo-aba { display: none; }
+        .conteudo-aba.ativo { display: block; }
+
+        .filtros {
+            background: white;
+            border-radius: 16px;
+            margin-bottom: 24px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+            border: 1px solid #e2e8f0;
+        }
+        .filtros-top {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 16px;
+            padding: 20px;
+            border-bottom: 1px solid #e2e8f0;
+            align-items: flex-end;
+        }
+        .filtros-top > div { flex: 1; min-width: 150px; }
+        .filtros-top label {
+            font-weight: 600;
+            color: #334155;
+            display: block;
+            margin-bottom: 6px;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+        }
+        .filtros-top input, .filtros-top select {
+            width: 100%;
+            padding: 12px 16px;
+            font-size: 1rem;
+            font-family: inherit;
+            border: 1.5px solid #cbd5e1;
+            border-radius: 12px;
+            transition: all 0.2s;
+            background: white;
+        }
+        .filtros-botoes {
+            display: flex;
+            gap: 12px;
+            padding: 12px 20px 20px 20px;
+            background: #fafcff;
+            border-top: 1px solid #e2e8f0;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        .btn-acao {
+            background: #f1f5f9;
+            border: 1px solid #cbd5e1;
+            padding: 8px 16px;
+            border-radius: 40px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .btn-acao:hover {
+            background: #e2e8f0;
+        }
+        .stats {
+            background: #eef2f6;
+            padding: 8px 16px;
+            border-radius: 40px;
+            color: #1e293b;
+            font-size: 0.85rem;
+            font-weight: 600;
+            text-align: center;
+            white-space: nowrap;
+        }
+        .tabela-wrapper {
+            position: relative;
+            max-height: 70vh;
+            overflow-y: auto;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+            min-width: 600px;
+        }
+        th {
+            background-color: #2563eb;
+            color: white;
+            padding: 12px;
+            text-align: left;
+            white-space: nowrap;
+            font-weight: 600;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        .ordenar-btn {
+            margin-left: 8px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            background: rgba(255,255,255,0.2);
+            padding: 2px 6px;
+            border-radius: 20px;
+            display: inline-block;
+        }
+        td {
+            padding: 10px 12px;
+            border-bottom: 1px solid #e2e8f0;
+            white-space: nowrap;
+        }
+        .codigo, .qtde { text-align: right; font-family: monospace; }
+        .cards-view {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        .card-item {
+            background: white;
+            border-radius: 16px;
+            padding: 16px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+            border-left: 4px solid #2563eb;
+            transition: all 0.2s;
+        }
+        .card-item .card-linha {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            font-size: 0.9rem;
+        }
+        .card-item .label {
+            font-weight: 600;
+            color: #475569;
+            min-width: 100px;
+        }
+        .card-item .valor {
+            font-weight: 500;
+            text-align: right;
+            word-break: break-word;
+            flex: 1;
+        }
+        .card-item button {
+            margin-top: 8px;
+        }
+        .estoque-baixo { background-color: #fee2e2; }
+        .negativo { background-color: #fee2e2; }
+        .erro, .vazio, .carregando {
+            text-align: center;
+            padding: 40px 16px;
+            border-radius: 16px;
+            font-size: 1.1rem;
+            font-weight: 500;
+        }
+        .erro { color: #b91c1c; background: #fee2e2; }
+        .vazio { color: #475569; background: #f1f5f9; font-style: italic; }
+        .carregando { color: #2563eb; background: #eff6ff; }
+        .paginacao {
+            display: flex;
+            justify-content: center;
+            gap: 8px;
+            margin-top: 20px;
+            flex-wrap: wrap;
+        }
+        .pag-btn {
+            background: white;
+            border: 1px solid #cbd5e1;
+            padding: 8px 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 500;
+            min-width: 44px;
+            text-align: center;
+        }
+        .pag-btn.ativo {
+            background: #2563eb;
+            color: white;
+            border-color: #2563eb;
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.6);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+        .modal.ativo { display: flex; }
+        .modal-conteudo {
+            background: white;
+            border-radius: 24px;
+            padding: 24px;
+            max-width: 90%;
+            width: 320px;
+            text-align: center;
+        }
+        .modal-conteudo button {
+            margin-top: 16px;
+            padding: 8px 20px;
+            border-radius: 40px;
+            border: none;
+            background: #2563eb;
+            color: white;
+            cursor: pointer;
+        }
+        #checklistColunas {
+            text-align: left;
+            margin: 16px 0;
+        }
+        #checklistColunas label {
+            display: block;
+            margin: 8px 0;
+        }
+        details > summary {
+            cursor: pointer;
+            font-weight: 600;
+            color: #2563eb;
+            margin-top: 8px;
+        }
+        details table {
+            margin-top: 8px;
+        }
+        @media (min-width: 768px) {
+            body { padding: 24px; }
+            h1 { font-size: 2.2rem; }
+            table { font-size: 0.95rem; }
+            th, td { padding: 14px 16px; }
+        }
+        @media (max-width: 480px) {
+            .aba-btn { padding: 8px 12px; font-size: 0.8rem; }
+            .filtros-top { flex-direction: column; align-items: stretch; }
+        }
+        
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/idb@8.0.0/build/umd.js"></script>
+</head>
+<body>
+<div class="container">
+    <div class="topo-data" id="topoData">Carregando última atualização...</div>
+    <h1>📊 Gestão de Setor</h1>
+
+    <div class="dashboard">
+        <div class="card-dash"><h3>Total SKUs</h3><div class="valor" id="totalSkus">-</div></div>
+    </div>
+
+    <div class="topo">
+        <div class="global-search">🔍 <input type="text" id="globalSearch" placeholder="Pesquisar na aba ativa..."></div>
+        <div class="limite-estoque"><label>⚠️ Estoque baixo:</label><input type="number" id="limiteEstoque" value="10" step="1" min="0"></div>
+    </div>
+
+    <div class="abas">
+        <button class="aba-btn ativo" data-aba="codbalanca">⚖️ Código x Balança</button>
+        <button class="aba-btn" data-aba="estoquevirtual">📦 Estoque Virtual</button>
+        <button class="aba-btn" data-aba="analise">📉 Análise de Estoque</button>
+        <button class="aba-btn" data-aba="validade">📅 Validade</button>
+        <button class="aba-btn" data-aba="vinculacao">📍 Vínculo Local</button>
+    </div>
+
+    <!-- ABA CÓDIGO X BALANÇA -->
+    <div id="aba-codbalanca" class="conteudo-aba ativo">
+        <div class="filtros">
+            <div class="filtros-top">
+                <div><label>🔍 Buscar por Código ou Produto</label><input type="text" id="buscaCodBalanca" placeholder="Ex: 1161846, CAR SU CONG..."></div>
+                <div class="stats" id="statsCodBalanca">0 itens encontrados</div>
+            </div>
+            <div class="filtros-botoes">
+                <button id="btnVisaoCodBalanca" class="btn-acao">🃏 Ver como Cards</button>
+            </div>
+        </div>
+        <div id="statusCodBalanca" class="carregando">Carregando dados...</div>
+        <div id="conteudoCodBalanca"></div>
+        <div id="paginacaoCodBalanca" class="paginacao" style="display: none;"></div>
+    </div>
+
+    <!-- ABA ESTOQUE VIRTUAL -->
+    <div id="aba-estoquevirtual" class="conteudo-aba">
+        <div class="filtros">
+            <div class="filtros-top">
+                <div><label>🔍 Código ou Nome</label><input type="text" id="buscaEstoque" placeholder="Ex: 1180114, FRANGO"></div>
+                <div><label>🏢 Fornecedor</label><input type="text" id="buscaEstoqueFornecedor" placeholder="Ex: AURORA, SADIA"></div>
+                <div class="stats" id="statsEstoque">0 itens exibidos</div>
+            </div>
+            <div class="filtros-botoes">
+                <button id="btnVisaoEstoque" class="btn-acao">🃏 Ver como Cards</button>
+            </div>
+        </div>
+        <div id="statusEstoque" class="carregando">Carregando dados...</div>
+        <div id="conteudoEstoque"></div>
+        <div id="paginacaoEstoque" class="paginacao" style="display: none;"></div>
+    </div>
+
+    <!-- ABA ANÁLISE DE ESTOQUE -->
+    <div id="aba-analise" class="conteudo-aba">
+        <div class="filtros">
+            <div class="filtros-top">
+                <div><label>🔍 Buscar por Código ou Produto</label><input type="text" id="buscaAnalise" placeholder="Ex: 1180114, FRANGO"></div>
+                <div><label>🏢 Fornecedor</label><input type="text" id="buscaAnaliseFornecedor" placeholder="Ex: AURORA, SADIA"></div>
+                <div class="stats" id="statsAnalise">0 itens analisados</div>
+            </div>
+            <div class="filtros-botoes">
+                <button id="btnVisaoAnalise" class="btn-acao">🃏 Ver como Cards</button>
+                <button id="btnConfigColunas" class="btn-acao">⚙️ Ocultar colunas</button>
+            </div>
+        </div>
+        <div id="statusAnalise" class="carregando">Carregando dados...</div>
+        <div id="conteudoAnalise"></div>
+        <div id="paginacaoAnalise" class="paginacao" style="display: none;"></div>
+    </div>
+
+    <!-- ABA VALIDADE -->
+    <div id="aba-validade" class="conteudo-aba">
+        <div class="filtros">
+            <div class="filtros-top">
+                <div><label>🔍 Buscar por Código ou Produto</label><input type="text" id="buscaValidade" placeholder="Ex: 1103789, IOG"></div>
+                <div><label>🏢 Fornecedor</label><input type="text" id="buscaValidadeFornecedor" placeholder="Ex: SEARA"></div>
+                <div class="stats" id="statsValidade">0 itens</div>
+            </div>
+            <div class="filtros-botoes">
+                <button id="btnVisaoValidade" class="btn-acao">🃏 Ver como Cards</button>
+                <button id="btnModoValidade" class="btn-acao">🗂️ Modo: Agrupado</button>
+                <button class="btn-acao filtro-status" data-status="todos">Todos</button>
+                <button class="btn-acao filtro-status" data-status="vencidos">Vencidos</button>
+                <button class="btn-acao filtro-status" data-status="criticos">Críticos (≤7d)</button>
+                <button class="btn-acao filtro-status" data-status="atencao">Atenção (≤30d)</button>
+                <button class="btn-acao filtro-status" data-status="proximos">Próximos (≤90d)</button>
+            </div>
+        </div>
+        <div id="statusValidade" class="carregando">Carregando dados...</div>
+        <div id="conteudoValidade"></div>
+        <div id="paginacaoValidade" class="paginacao" style="display: none;"></div>
+    </div>
+        <!-- ABA VÍNCULO LOCAL -->
+    <div id="aba-vinculacao" class="conteudo-aba">
+        <div class="vinculo-local-bar">
+            <div class="vinculo-local-info">
+                <span class="vinculo-local-label">📍 Local atual:</span>
+                <span id="localAtualTexto" class="vinculo-local-valor">— não definido —</span>
+            </div>
+            <button id="btnTrocarLocal" class="btn-acao">🔄 Trocar Local</button>
+        </div>
+
+        <div class="filtros">
+            <div class="filtros-botoes" style="border-top:none;">
+                <button id="btnLerLocal" class="btn-acao">📍 Ler Local</button>
+                <button id="btnLerProduto" class="btn-acao">📷 Ler Produto</button>
+                <button id="btnSincronizar" class="btn-acao">☁️ Sincronizar (<span id="qtdFila">0</span>)</button>
+                <button id="btnLimparTudo" class="btn-acao" style="color:#b91c1c;">🗑️ Limpar lista</button>
+                <div class="stats" id="statsVinculacao">0 itens</div>
+            </div>
+        </div>
+
+        <div id="conteudoVinculacao"></div>
+    </div>
+</div>
+
+<!-- Modal QR -->
+<div id="qrModal" class="modal">
+    <div class="modal-conteudo">
+        <h3>Código QR</h3>
+        <div id="qrCodeContainer"></div>
+        <button onclick="fecharModalQR()">Fechar</button>
+    </div>
+</div>
+
+<!-- Modal Configurar Colunas -->
+<div id="modalColunas" class="modal">
+    <div class="modal-conteudo">
+        <h3>Escolha as colunas</h3>
+        <div id="checklistColunas"></div>
+        <button id="salvarColunas">Salvar</button>
+        <button id="fecharModal">Cancelar</button>
+    </div>
+</div>
+
+<script>
+    // ==================== CONFIGURAÇÕES ====================
+    const SHEET_ID = '1sxetmK0BUCeh1mk-_cGxESgn7XJSiVQ9R0UQQtXAEEY';
+    const SHEET_CODBALANCA = 'CodBalanca';
+    const SHEET_ESTOQUE = 'EstoqueVirtual';
+    const SHEET_ATUALIZADA = 'Atualizada';
+    const SHEET_VALIDADE = 'Validade';
+
+    const URL_CODBALANCA = `https://opensheet.elk.sh/${SHEET_ID}/${SHEET_CODBALANCA}`;
+    const URL_ESTOQUE = `https://opensheet.elk.sh/${SHEET_ID}/${SHEET_ESTOQUE}`;
+    const URL_ATUALIZADA = `https://opensheet.elk.sh/${SHEET_ID}/${SHEET_ATUALIZADA}`;
+    const URL_VALIDADE = `https://opensheet.elk.sh/${SHEET_ID}/${SHEET_VALIDADE}`;
+
+    let dadosCodBalanca = [];
+    let dadosEstoque = [];
+    let dadosValidade = [];
+    let ultimaAtualizacao = new Date();
+
+    let mapasGlobal = {
+        fornecedor: new Map(),
+        estoque: new Map(),
+        diasSemVenda: new Map()
+    };
+
+    let ordenacao = {
+        codbalanca: { coluna: 'Balanca', direcao: 'asc' },
+        estoque: { coluna: null, direcao: 'asc' },
+        analise: { coluna: null, direcao: 'asc' },
+        validade: { coluna: 'validadeProxima', direcao: 'asc' }
+    };
+
+    let visao = {
+        codbalanca: 'tabela',
+        estoque: 'tabela',
+        analise: 'tabela',
+        validade: 'tabela'
+    };
+
+    let modoAgrupadoValidade = true;
+
+    const ITENS_POR_PAGINA = 100;
+    let paginacao = {
+        codbalanca: { paginaAtual: 1, totalPaginas: 1, dadosFiltrados: [] },
+        estoque: { paginaAtual: 1, totalPaginas: 1, dadosFiltrados: [] },
+        analise: { paginaAtual: 1, totalPaginas: 1, dadosFiltrados: [] },
+        validade: { paginaAtual: 1, totalPaginas: 1, dadosFiltrados: [] }
+    };
+
+    let filtroStatusValidade = 'todos';
+
+    // Elementos DOM
+    const topoDataDiv = document.getElementById('topoData');
+    const abaBtns = document.querySelectorAll('.aba-btn');
+    const conteudos = {
+        codbalanca: document.getElementById('aba-codbalanca'),
+        estoquevirtual: document.getElementById('aba-estoquevirtual'),
+        analise: document.getElementById('aba-analise'),
+        validade: document.getElementById('aba-validade')
+        vinculacao: document.getElementById('aba-vinculacao')
+    };
+    const globalSearch = document.getElementById('globalSearch');
+    const limiteEstoqueInput = document.getElementById('limiteEstoque');
+
+    // ==================== FUNÇÕES AUXILIARES ====================
+    function normalizarNumero(valor) {
+        if (valor === undefined || valor === null || valor === '') return 0;
+        if (typeof valor === 'number') return valor;
+        const str = valor.toString().replace(/\./g, '').replace(',', '.');
+        const num = parseFloat(str);
+        return isNaN(num) ? 0 : num;
+    }
+
+    function parseDataBrasil(str) {
+        if (!str) return null;
+        const partes = str.split('/');
+        if (partes.length !== 3) return null;
+        const dia = parseInt(partes[0], 10);
+        const mes = parseInt(partes[1], 10) - 1;
+        const ano = parseInt(partes[2], 10);
+        if (isNaN(dia) || isNaN(mes) || isNaN(ano)) return null;
+        return new Date(ano, mes, dia);
+    }
+
+    function ordenarDados(dados, coluna, direcao) {
+        if (!coluna) return dados;
+        return [...dados].sort((a, b) => {
+            let valA = a[coluna] !== undefined ? a[coluna] : '';
+            let valB = b[coluna] !== undefined ? b[coluna] : '';
+
+            if (valA instanceof Date && valB instanceof Date) {
+                return direcao === 'asc' ? valA - valB : valB - valA;
+            }
+
+            const numA = typeof valA === 'number' ? valA : normalizarNumero(valA);
+            const numB = typeof valB === 'number' ? valB : normalizarNumero(valB);
+            const isNumA = !isNaN(numA) && isFinite(numA);
+            const isNumB = !isNaN(numB) && isFinite(numB);
+
+            if (isNumA && isNumB) {
+                return direcao === 'asc' ? numA - numB : numB - numA;
+            } else {
+                valA = valA.toString().toLowerCase();
+                valB = valB.toString().toLowerCase();
+                return direcao === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
+            }
+        });
+    }
+
+    function atualizarMapasEstoque() {
+        mapasGlobal.fornecedor.clear();
+        mapasGlobal.estoque.clear();
+        mapasGlobal.diasSemVenda.clear();
+        dadosEstoque.forEach(item => {
+            const cod = item['Codigo']?.toString();
+            if (cod) {
+                mapasGlobal.fornecedor.set(cod, item['Fornecedor'] || '');
+                mapasGlobal.estoque.set(cod, normalizarNumero(item['Estoque']));
+                mapasGlobal.diasSemVenda.set(cod, parseInt(item['Dias sem venda']) || 0);
+            }
+        });
+    }
+
+    function atualizarDashboard() {
+        if (dadosEstoque.length) {
+            document.getElementById('totalSkus').innerText = dadosEstoque.length;
+        }
+    }
+
+    // ==================== CARREGAMENTO ====================
+    async function carregarAtualizada() {
+        try {
+            const resp = await fetch(URL_ATUALIZADA);
+            if (resp.ok) {
+                const data = await resp.json();
+                if (data.length && data[0]['atualizada']) {
+                    const parsed = parseDataBrasil(data[0]['atualizada']);
+                    if (parsed && !isNaN(parsed.getTime())) ultimaAtualizacao = parsed;
+                }
+            }
+        } catch (e) {}
+        topoDataDiv.innerHTML = `📅 Última atualização: ${ultimaAtualizacao.toLocaleDateString('pt-BR')}`;
+    }
+
+    async function carregarCodBalanca() {
+        try {
+            const resp = await fetch(URL_CODBALANCA);
+            if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+            dadosCodBalanca = await resp.json();
+            aplicarFiltroCodBalanca();
+            document.getElementById('statusCodBalanca').style.display = 'none';
+        } catch (err) {
+            document.getElementById('statusCodBalanca').innerHTML = `<div class="erro">❌ Erro: ${err.message}</div>`;
+        }
+    }
+
+    async function carregarEstoque() {
+        try {
+            const resp = await fetch(URL_ESTOQUE);
+            if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+            const data = await resp.json();
+            dadosEstoque = data.map(item => ({
+                ...item,
+                Estoque: normalizarNumero(item['Estoque']),
+                'Dias sem venda': normalizarNumero(item['Dias sem venda']),
+                'Codigo': item['Codigo']?.toString() || ''
+            }));
+            atualizarMapasEstoque();
+            aplicarFiltroEstoque();
+            atualizarDashboard();
+            document.getElementById('statusEstoque').style.display = 'none';
+        } catch (err) {
+            document.getElementById('statusEstoque').innerHTML = `<div class="erro">❌ Erro: ${err.message}</div>`;
+        }
+    }
+
+    async function carregarValidade() {
+        try {
+            const resp = await fetch(URL_VALIDADE);
+            if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+            const data = await resp.json();
+            const hoje = new Date();
+            hoje.setHours(0,0,0,0);
+            dadosValidade = data.map(item => {
+                const dataValidade = parseDataBrasil(item['Data de validade']);
+                const diasRestantes = dataValidade ? Math.ceil((dataValidade - hoje) / (1000*60*60*24)) : null;
+                return {
+                    codigo: item['Código']?.toString() || '',
+                    produto: item['Produto'] || '',
+                    fornecedor: item['Fornecedor'] || '',
+                    locais: item['Locais'] || '',
+                    estoqueAtual: item['Estoque atual'] || '',
+                    estoqueAtualNum: normalizarNumero(item['Estoque atual']),
+                    dataValidade: dataValidade,
+                    dataValidadeStr: item['Data de validade'] || '',
+                    diasRestantes: diasRestantes,
+                    ultimaCompra: item['Última compra'] || '',
+                    qtdeUltimaCompra: item['Qtde. última compra'] || ''
+                };
+            }).filter(item => item.dataValidade !== null);
+            aplicarFiltroValidade();
+            document.getElementById('statusValidade').style.display = 'none';
+        } catch (err) {
+            document.getElementById('statusValidade').innerHTML = `<div class="erro">❌ Erro: ${err.message}</div>`;
+        }
+    }
+
+    async function carregarAnalise() {
+        if (dadosEstoque.length === 0) await carregarEstoque();
+        document.getElementById('statusAnalise').style.display = 'none';
+        aplicarFiltroAnalise();
+    }
+
+    // ==================== ABA CÓDIGO X BALANÇA ====================
+    function aplicarFiltroCodBalanca() {
+        const termo = document.getElementById('buscaCodBalanca').value.trim().toLowerCase();
+        let filtrados = dadosCodBalanca;
+        if (termo) {
+            filtrados = dadosCodBalanca.filter(i => {
+                const cod = (i['Cod'] || '').toString().toLowerCase();
+                const prod = (i['Produto'] || '').toLowerCase();
+                return cod.includes(termo) || prod.includes(termo);
+            });
+        }
+        document.getElementById('statsCodBalanca').innerText = `${filtrados.length} itens encontrados`;
+        paginacao.codbalanca.dadosFiltrados = filtrados;
+        paginacao.codbalanca.totalPaginas = Math.ceil(filtrados.length / ITENS_POR_PAGINA);
+        paginacao.codbalanca.paginaAtual = 1;
+        renderizarCodBalanca();
+    }
+
+    function renderizarCodBalanca() {
+        const { dadosFiltrados, paginaAtual, totalPaginas } = paginacao.codbalanca;
+        const inicio = (paginaAtual - 1) * ITENS_POR_PAGINA;
+        const ordenados = ordenarDados(dadosFiltrados.slice(inicio, inicio+ITENS_POR_PAGINA), ordenacao.codbalanca.coluna, ordenacao.codbalanca.direcao);
+        const conteudoDiv = document.getElementById('conteudoCodBalanca');
+        if (!ordenados.length) {
+            conteudoDiv.innerHTML = '<div class="vazio">Nenhum item.</div>';
+            document.getElementById('paginacaoCodBalanca').style.display = 'none';
+            return;
+        }
+
+        if (visao.codbalanca === 'tabela') {
+            let html = `<div class="tabela-wrapper"><table id="tabela-codbalanca"><thead>`;
+            html += `<th>Balança <span class="ordenar-btn" data-coluna="Balanca">⇅</span></th>`;
+            html += `<th>Código <span class="ordenar-btn" data-coluna="Cod">⇅</span></th>`;
+            html += `<th>Produto <span class="ordenar-btn" data-coluna="Produto">⇅</span></th>`;
+            html += `<th>QR</th>`;
+            html += `</thead><tbody>`;
+            for (const i of ordenados) {
+                const balanca = i['Balanca'] || '';
+                html += `<tr>
+                            <td class="codigo">${balanca}</td>
+                            <td class="codigo">${i['Cod'] || ''}</td>
+                            <td>${i['Produto'] || ''}</td>
+                            <td><button class="btn-qr" data-valor="${balanca}">📷 QR</button></td>
+                         </tr>`;
+            }
+            html += `</tbody></table></div>`;
+            conteudoDiv.innerHTML = html;
+        } else {
+            let html = `<div class="cards-view">`;
+            for (const i of ordenados) {
+                const balanca = i['Balanca'] || '';
+                html += `<div class="card-item">
+                            <div class="card-linha"><span class="label">Balança:</span><span class="valor">${balanca}</span></div>
+                            <div class="card-linha"><span class="label">Código:</span><span class="valor">${i['Cod'] || ''}</span></div>
+                            <div class="card-linha"><span class="label">Produto:</span><span class="valor">${i['Produto'] || ''}</span></div>
+                            <button class="btn-qr" data-valor="${balanca}">📷 Gerar QR</button>
+                         </div>`;
+            }
+            html += `</div>`;
+            conteudoDiv.innerHTML = html;
+        }
+        attachQrEvents();
+        attachOrdenacao('tabela-codbalanca', 'codbalanca');
+        if (totalPaginas > 1) {
+            const pagDiv = document.getElementById('paginacaoCodBalanca');
+            pagDiv.style.display = 'flex';
+            pagDiv.innerHTML = gerarBotoesPaginacao(paginaAtual, totalPaginas, 'codbalanca');
+        } else document.getElementById('paginacaoCodBalanca').style.display = 'none';
+    }
+
+    // ==================== ABA ESTOQUE VIRTUAL ====================
+    function aplicarFiltroEstoque() {
+        const termo = document.getElementById('buscaEstoque').value.trim().toLowerCase();
+        const termoForn = document.getElementById('buscaEstoqueFornecedor').value.trim().toLowerCase();
+        let filtrados = dadosEstoque;
+        if (termo || termoForn) {
+            filtrados = dadosEstoque.filter(i => {
+                const cod = (i['Codigo'] || '').toString().toLowerCase();
+                const nome = (i['Nome'] || '').toLowerCase();
+                const forn = (i['Fornecedor'] || '').toLowerCase();
+                let match = true;
+                if (termo) match = match && (cod.includes(termo) || nome.includes(termo));
+                if (termoForn) match = match && forn.includes(termoForn);
+                return match;
+            });
+        }
+        document.getElementById('statsEstoque').innerText = `${filtrados.length} itens exibidos`;
+        paginacao.estoque.dadosFiltrados = filtrados;
+        paginacao.estoque.totalPaginas = Math.ceil(filtrados.length / ITENS_POR_PAGINA);
+        paginacao.estoque.paginaAtual = 1;
+        renderizarEstoque();
+    }
+
+    function renderizarEstoque() {
+        const { dadosFiltrados, paginaAtual, totalPaginas } = paginacao.estoque;
+        const inicio = (paginaAtual - 1) * ITENS_POR_PAGINA;
+        const ordenados = ordenarDados(dadosFiltrados.slice(inicio, inicio+ITENS_POR_PAGINA), ordenacao.estoque.coluna, ordenacao.estoque.direcao);
+        const conteudoDiv = document.getElementById('conteudoEstoque');
+        if (!ordenados.length) {
+            conteudoDiv.innerHTML = '<div class="vazio">Nenhum item.</div>';
+            document.getElementById('paginacaoEstoque').style.display = 'none';
+            return;
+        }
+
+        const limite = parseInt(limiteEstoqueInput.value) || 10;
+
+        if (visao.estoque === 'tabela') {
+            let html = `<div class="tabela-wrapper"><table id="tabela-estoque"><thead>`;
+            const colunas = ['Codigo', 'Nome', 'Estoque', 'Dias sem venda', 'Última venda', 'Última Compra', 'Fornecedor', 'QR'];
+            colunas.forEach(col => {
+                html += `<th>${col} <span class="ordenar-btn" data-coluna="${col === 'QR' ? '' : col}">${col !== 'QR' ? '⇅' : ''}</span></th>`;
+            });
+            html += `</thead><tbody>`;
+            for (const i of ordenados) {
+                const estoque = i['Estoque'];
+                let classe = '';
+                if (estoque === 0) classe = 'negativo';
+                else if (estoque < limite) classe = 'estoque-baixo';
+                const qrValor = (i['Codigo'] || '') + '0001';
+                html += `<tr class="${classe}">
+                              <td class="codigo">${i['Codigo'] || ''}</td>
+                              <td>${i['Nome'] || ''}</td>
+                              <td class="qtde">${estoque}</td>
+                              <td class="qtde">${i['Dias sem venda'] || ''}</td>
+                              <td>${i['Última venda'] || ''}</td>
+                              <td>${i['Última Compra'] || ''}</td>
+                              <td>${i['Fornecedor'] || ''}</td>
+                              <td><button class="btn-qr" data-valor="${qrValor}">📷 QR</button></td>
+                             </tr>`;
+            }
+            html += `</tbody></table></div>`;
+            conteudoDiv.innerHTML = html;
+        } else {
+            let html = `<div class="cards-view">`;
+            for (const i of ordenados) {
+                const estoque = i['Estoque'];
+                let classe = '';
+                if (estoque === 0) classe = 'negativo';
+                else if (estoque < limite) classe = 'estoque-baixo';
+                const qrValor = (i['Codigo'] || '') + '0001';
+                html += `<div class="card-item ${classe}">
+                            <div class="card-linha"><span class="label">Código:</span><span class="valor">${i['Codigo'] || ''}</span></div>
+                            <div class="card-linha"><span class="label">Nome:</span><span class="valor">${i['Nome'] || ''}</span></div>
+                            <div class="card-linha"><span class="label">Estoque:</span><span class="valor">${estoque}</span></div>
+                            <div class="card-linha"><span class="label">Dias sem venda:</span><span class="valor">${i['Dias sem venda'] || ''}</span></div>
+                            <div class="card-linha"><span class="label">Última venda:</span><span class="valor">${i['Última venda'] || ''}</span></div>
+                            <div class="card-linha"><span class="label">Última Compra:</span><span class="valor">${i['Última Compra'] || ''}</span></div>
+                            <div class="card-linha"><span class="label">Fornecedor:</span><span class="valor">${i['Fornecedor'] || ''}</span></div>
+                            <button class="btn-qr" data-valor="${qrValor}">📷 Gerar QR</button>
+                         </div>`;
+            }
+            html += `</div>`;
+            conteudoDiv.innerHTML = html;
+        }
+        attachQrEvents();
+        attachOrdenacao('tabela-estoque', 'estoque');
+        if (totalPaginas > 1) {
+            const pagDiv = document.getElementById('paginacaoEstoque');
+            pagDiv.style.display = 'flex';
+            pagDiv.innerHTML = gerarBotoesPaginacao(paginaAtual, totalPaginas, 'estoque');
+        } else document.getElementById('paginacaoEstoque').style.display = 'none';
+    }
+
+    // ==================== ABA ANÁLISE DE ESTOQUE ====================
+    const todasColunasAnalise = [
+        { campo: 'codigo', label: 'Código', padrao: true },
+        { campo: 'nome', label: 'Produto', padrao: true },
+        { campo: 'fornecedor', label: 'Fornecedor', padrao: true },
+        { campo: 'estoque', label: 'Estoque', padrao: true },
+        { campo: 'diasSemVenda', label: 'Dias sem venda', padrao: true },
+        { campo: 'ultimaCompra', label: 'Última Compra', padrao: true },
+        { campo: 'sugestao', label: 'Sugestão', padrao: true },
+        { campo: 'motivo', label: 'Detalhe', padrao: false }
+    ];
+    let colunasVisiveis = [];
+
+    function carregarPreferenciasAnalise() {
+        const saved = localStorage.getItem('analise_colunas');
+        if (saved) {
+            colunasVisiveis = JSON.parse(saved);
+        } else {
+            colunasVisiveis = todasColunasAnalise.filter(c => c.padrao).map(c => c.campo);
+        }
+    }
+
+    function abrirModalColunas() {
+        const checklistDiv = document.getElementById('checklistColunas');
+        checklistDiv.innerHTML = '';
+        todasColunasAnalise.forEach(col => {
+            const label = document.createElement('label');
+            const chk = document.createElement('input');
+            chk.type = 'checkbox';
+            chk.value = col.campo;
+            chk.checked = colunasVisiveis.includes(col.campo);
+            label.appendChild(chk);
+            label.appendChild(document.createTextNode(' ' + col.label));
+            checklistDiv.appendChild(label);
+        });
+        document.getElementById('modalColunas').classList.add('ativo');
+    }
+
+    function fecharModalColunas() {
+        document.getElementById('modalColunas').classList.remove('ativo');
+    }
+
+    function salvarColunasModal() {
+        const checkboxes = document.querySelectorAll('#checklistColunas input');
+        colunasVisiveis = [];
+        checkboxes.forEach(chk => {
+            if (chk.checked) colunasVisiveis.push(chk.value);
+        });
+        localStorage.setItem('analise_colunas', JSON.stringify(colunasVisiveis));
+        fecharModalColunas();
+        aplicarFiltroAnalise();
+    }
+
+    function aplicarFiltroAnalise() {
+        const termo = document.getElementById('buscaAnalise').value.trim().toLowerCase();
+        const termoForn = document.getElementById('buscaAnaliseFornecedor').value.trim().toLowerCase();
+        const hoje = new Date();
+
+        if (!dadosEstoque.length) {
+            document.getElementById('statsAnalise').textContent = '0 itens analisados';
+            document.getElementById('conteudoAnalise').innerHTML = '<div class="vazio">Nenhum dado de estoque carregado.</div>';
+            document.getElementById('paginacaoAnalise').style.display = 'none';
+            return;
+        }
+
+        const analise = [];
+        for (const est of dadosEstoque) {
+            const cod = est['Codigo']?.toString();
+            if (!cod) continue;
+            const estoque = normalizarNumero(est['Estoque']);
+            const diasSemVenda = parseInt(est['Dias sem venda']) || 0;
+            const ultimaCompraStr = est['Última Compra'] || '';
+            const ultimaCompraDate = parseDataBrasil(ultimaCompraStr);
+            const diasUltimaCompra = ultimaCompraDate ? Math.floor((hoje - ultimaCompraDate) / (1000 * 3600 * 24)) : null;
+
+            let sugestao = 'OK', motivo = '';
+            if (estoque > 0 && diasSemVenda > 60) {
+                sugestao = '⚠️ Baixo giro';
+                motivo = `Dias sem venda: ${diasSemVenda}`;
+            } else if (diasUltimaCompra !== null && diasUltimaCompra > 180) {
+                sugestao = '⚠️ Última compra antiga';
+                motivo = `Última compra: ${ultimaCompraStr} (${diasUltimaCompra} dias)`;
+            } else if (estoque === 0 && diasSemVenda > 30) {
+                sugestao = 'ℹ️ Sem estoque, mas com venda há mais de 30 dias';
+                motivo = `Dias sem venda: ${diasSemVenda}`;
+            }
+
+            const fornecedor = est['Fornecedor'] || '';
+            let match = true;
+            if (termo) match = match && (cod.includes(termo) || (est['Nome'] || '').toLowerCase().includes(termo));
+            if (termoForn) match = match && fornecedor.toLowerCase().includes(termoForn);
+            if (match) {
+                analise.push({
+                    codigo: cod,
+                    nome: est['Nome'] || '',
+                    fornecedor: fornecedor,
+                    estoque: estoque,
+                    diasSemVenda: diasSemVenda,
+                    ultimaCompra: ultimaCompraStr,
+                    sugestao: sugestao,
+                    motivo: motivo
+                });
+            }
+        }
+
+        let filtrados = analise;
+        if (!ordenacao.analise.coluna) {
+            filtrados.sort((a, b) => {
+                if (a.sugestao !== 'OK' && b.sugestao === 'OK') return -1;
+                if (a.sugestao === 'OK' && b.sugestao !== 'OK') return 1;
+                return b.diasSemVenda - a.diasSemVenda;
+            });
+        } else {
+            filtrados = ordenarDados(filtrados, ordenacao.analise.coluna, ordenacao.analise.direcao);
+        }
+
+        document.getElementById('statsAnalise').textContent = `${filtrados.length} itens analisados`;
+        paginacao.analise.dadosFiltrados = filtrados;
+        paginacao.analise.totalPaginas = Math.ceil(filtrados.length / ITENS_POR_PAGINA);
+        paginacao.analise.paginaAtual = 1;
+        renderizarAnalise();
+    }
+
+    function renderizarAnalise() {
+        const { dadosFiltrados, paginaAtual, totalPaginas } = paginacao.analise;
+        const inicio = (paginaAtual - 1) * ITENS_POR_PAGINA;
+        const ordenados = ordenarDados(dadosFiltrados.slice(inicio, inicio+ITENS_POR_PAGINA), ordenacao.analise.coluna, ordenacao.analise.direcao);
+        const conteudoDiv = document.getElementById('conteudoAnalise');
+        if (!ordenados.length) {
+            conteudoDiv.innerHTML = '<div class="vazio">Nenhum item.</div>';
+            document.getElementById('paginacaoAnalise').style.display = 'none';
+            return;
+        }
+
+        if (visao.analise === 'tabela') {
+            let html = `<div class="tabela-wrapper"><table id="tabela-analise"><thead>`;
+            for (const col of todasColunasAnalise) {
+                if (colunasVisiveis.includes(col.campo)) {
+                    html += `<th>${col.label} <span class="ordenar-btn" data-coluna="${col.campo}">⇅</span></th>`;
+                }
+            }
+            html += `<th>QR</th>`;
+            html += `</thead><tbody>`;
+            for (const a of ordenados) {
+                const qrValor = a.codigo + '0001';
+                html += `<tr class="${a.sugestao !== 'OK' ? 'negativo' : ''}">`;
+                for (const col of todasColunasAnalise) {
+                    if (colunasVisiveis.includes(col.campo)) {
+                        let valor = a[col.campo];
+                        if (col.campo === 'estoque' || col.campo === 'diasSemVenda') {
+                            html += `<td class="qtde">${valor}</td>`;
+                        } else {
+                            html += `<td>${valor}</td>`;
+                        }
+                    }
+                }
+                html += `<td><button class="btn-qr" data-valor="${qrValor}">📷 QR</button></td>`;
+                html += `</tr>`;
+            }
+            html += `</tbody></table></div>`;
+            conteudoDiv.innerHTML = html;
+        } else {
+            let html = `<div class="cards-view">`;
+            for (const a of ordenados) {
+                const qrValor = a.codigo + '0001';
+                html += `<div class="card-item ${a.sugestao !== 'OK' ? 'negativo' : ''}">`;
+                for (const col of todasColunasAnalise) {
+                    if (colunasVisiveis.includes(col.campo)) {
+                        let valor = a[col.campo];
+                        html += `<div class="card-linha"><span class="label">${col.label}:</span><span class="valor">${valor}</span></div>`;
+                    }
+                }
+                if (a.sugestao !== 'OK' && a.motivo && !colunasVisiveis.includes('motivo')) {
+                    html += `<div class="card-linha motivo"><span class="label">Detalhe:</span><span class="valor">${a.motivo}</span></div>`;
+                }
+                html += `<button class="btn-qr" data-valor="${qrValor}">📷 Gerar QR</button>`;
+                html += `</div>`;
+            }
+            html += `</div>`;
+            conteudoDiv.innerHTML = html;
+        }
+        attachQrEvents();
+        attachOrdenacao('tabela-analise', 'analise');
+        if (totalPaginas > 1) {
+            const pagDiv = document.getElementById('paginacaoAnalise');
+            pagDiv.style.display = 'flex';
+            pagDiv.innerHTML = gerarBotoesPaginacao(paginaAtual, totalPaginas, 'analise');
+        } else document.getElementById('paginacaoAnalise').style.display = 'none';
+    }
+
+    // ==================== ABA VALIDADE ====================
+    function statusDoItem(dias) {
+        if (dias < 0) return { texto: 'Vencido', cor: '#6b7280' };
+        if (dias <= 7) return { texto: 'Crítico', cor: '#ef4444' };
+        if (dias <= 30) return { texto: 'Atenção', cor: '#f97316' };
+        if (dias <= 90) return { texto: 'Próximo', cor: '#eab308' };
+        return { texto: 'OK', cor: '#10b981' };
+    }
+
+    function agruparValidades(dados) {
+        const mapa = new Map();
+        dados.forEach(item => {
+            const chave = item.codigo || item.produto;
+            if (!mapa.has(chave)) {
+                mapa.set(chave, {
+                    codigo: item.codigo,
+                    produto: item.produto,
+                    fornecedor: item.fornecedor,
+                    locais: item.locais,
+                    lotes: [],
+                    totalEstoque: 0,
+                    numLotes: 0,
+                    validadeProxima: null,
+                    diasProximo: null
+                });
+            }
+            const grupo = mapa.get(chave);
+            grupo.lotes.push(item);
+            grupo.totalEstoque += item.estoqueAtualNum || 0;
+            grupo.numLotes++;
+
+            if (item.dataValidade) {
+                if (!grupo.validadeProxima || item.dataValidade < grupo.validadeProxima) {
+                    grupo.validadeProxima = item.dataValidade;
+                    grupo.diasProximo = item.diasRestantes;
+                }
+            }
+        });
+
+        // Ordena os lotes dentro de cada grupo por data de validade
+        for (const grupo of mapa.values()) {
+            grupo.lotes.sort((a, b) => a.dataValidade - b.dataValidade);
+        }
+
+        return Array.from(mapa.values());
+    }
+
+    function aplicarFiltroValidade() {
+        const termo = document.getElementById('buscaValidade').value.trim().toLowerCase();
+        const termoForn = document.getElementById('buscaValidadeFornecedor').value.trim().toLowerCase();
+        let filtrados = dadosValidade;
+        if (termo || termoForn) {
+            filtrados = filtrados.filter(i => {
+                const cod = i.codigo.toLowerCase();
+                const prod = i.produto.toLowerCase();
+                const forn = i.fornecedor.toLowerCase();
+                let match = true;
+                if (termo) match = match && (cod.includes(termo) || prod.includes(termo));
+                if (termoForn) match = match && forn.includes(termoForn);
+                return match;
+            });
+        }
+        // Aplicar filtro de status
+        if (filtroStatusValidade !== 'todos') {
+            filtrados = filtrados.filter(i => {
+                const d = i.diasRestantes;
+                if (d === null) return false;
+                switch(filtroStatusValidade) {
+                    case 'vencidos': return d < 0;
+                    case 'criticos': return d >= 0 && d <= 7;
+                    case 'atencao': return d >= 8 && d <= 30;
+                    case 'proximos': return d >= 31 && d <= 90;
+                    default: return true;
+                }
+            });
+        }
+
+        // Agrupa se necessário
+        let dadosParaExibir;
+        if (modoAgrupadoValidade) {
+            const grupos = agruparValidades(filtrados);
+            // Aplica o filtro de status também nos grupos (se necessário)
+            if (filtroStatusValidade !== 'todos') {
+                // O filtro já foi aplicado aos itens; precisamos filtrar os grupos que não têm itens que passam?
+                // Como agrupamos apenas itens que passaram, grupos sem itens não aparecerão.
+                // Mas o grupo pode ter itens que passaram e outros não; nesse caso, a validadeProxima deve ser baseada apenas nos itens filtrados.
+                // Já está correto, pois agrupamos os itens filtrados.
+            }
+            dadosParaExibir = grupos;
+            document.getElementById('statsValidade').innerText = `${dadosParaExibir.length} produtos`;
+        } else {
+            dadosParaExibir = filtrados;
+            document.getElementById('statsValidade').innerText = `${dadosParaExibir.length} itens`;
+        }
+
+        paginacao.validade.dadosFiltrados = dadosParaExibir;
+        paginacao.validade.totalPaginas = Math.ceil(dadosParaExibir.length / ITENS_POR_PAGINA);
+        paginacao.validade.paginaAtual = 1;
+        renderizarValidade();
+    }
+
+    function renderizarValidade() {
+        if (modoAgrupadoValidade) {
+            renderizarValidadeAgrupada();
+        } else {
+            renderizarValidadeDetalhada();
+        }
+    }
+
+    function renderizarValidadeDetalhada() {
+        const { dadosFiltrados, paginaAtual, totalPaginas } = paginacao.validade;
+        const inicio = (paginaAtual - 1) * ITENS_POR_PAGINA;
+        const ordenados = ordenarDados(dadosFiltrados.slice(inicio, inicio+ITENS_POR_PAGINA), ordenacao.validade.coluna, ordenacao.validade.direcao);
+        const conteudoDiv = document.getElementById('conteudoValidade');
+        if (!ordenados.length) {
+            conteudoDiv.innerHTML = '<div class="vazio">Nenhum item.</div>';
+            document.getElementById('paginacaoValidade').style.display = 'none';
+            return;
+        }
+
+        if (visao.validade === 'tabela') {
+            let html = `<div class="tabela-wrapper"><table id="tabela-validade"><thead>`;
+            const colunas = [
+                { chave: 'dataValidade', label: 'Validade' },
+                { chave: 'codigo', label: 'Código' },
+                { chave: 'produto', label: 'Produto' },
+                { chave: 'fornecedor', label: 'Fornecedor' },
+                { chave: 'locais', label: 'Locais' },
+                { chave: 'estoqueAtual', label: 'Estoque atual' },
+                { chave: 'diasRestantes', label: 'Dias restantes' },
+                { chave: 'ultimaCompra', label: 'Última compra' },
+                { chave: 'qtdeUltimaCompra', label: 'Qtde. última compra' }
+            ];
+            colunas.forEach(col => {
+                html += `<th>${col.label} <span class="ordenar-btn" data-coluna="${col.chave}">⇅</span></th>`;
+            });
+            html += `</thead><tbody>`;
+            for (const i of ordenados) {
+                const st = statusDoItem(i.diasRestantes);
+                html += `<tr style="border-left: 6px solid ${st.cor};">
+                    <td>${i.dataValidade ? i.dataValidade.toLocaleDateString('pt-BR') : ''}</td>
+                    <td class="codigo">${i.codigo}</td>
+                    <td>${i.produto}</td>
+                    <td>${i.fornecedor}</td>
+                    <td>${i.locais}</td>
+                    <td class="qtde">${i.estoqueAtual}</td>
+                    <td class="qtde">${i.diasRestantes}</td>
+                    <td>${i.ultimaCompra}</td>
+                    <td class="qtde">${i.qtdeUltimaCompra}</td>
+                </tr>`;
+            }
+            html += `</tbody></table></div>`;
+            conteudoDiv.innerHTML = html;
+            attachOrdenacao('tabela-validade', 'validade');
+        } else {
+            let html = `<div class="cards-view">`;
+            for (const i of ordenados) {
+                const st = statusDoItem(i.diasRestantes);
+                html += `<div class="card-item" style="border-left-color: ${st.cor};">
+                    <div class="card-linha"><span class="label">Status:</span><span class="valor" style="background:${st.cor};color:white;padding:2px 8px;border-radius:12px;">${st.texto}</span></div>
+                    <div class="card-linha"><span class="label">Validade:</span><span class="valor">${i.dataValidade ? i.dataValidade.toLocaleDateString('pt-BR') : ''}</span></div>
+                    <div class="card-linha"><span class="label">Código:</span><span class="valor">${i.codigo}</span></div>
+                    <div class="card-linha"><span class="label">Produto:</span><span class="valor">${i.produto}</span></div>
+                    <div class="card-linha"><span class="label">Fornecedor:</span><span class="valor">${i.fornecedor}</span></div>
+                    <div class="card-linha"><span class="label">Locais:</span><span class="valor">${i.locais}</span></div>
+                    <div class="card-linha"><span class="label">Estoque atual:</span><span class="valor">${i.estoqueAtual}</span></div>
+                    <div class="card-linha"><span class="label">Dias restantes:</span><span class="valor">${i.diasRestantes}</span></div>
+                    <div class="card-linha"><span class="label">Última compra:</span><span class="valor">${i.ultimaCompra}</span></div>
+                    <div class="card-linha"><span class="label">Qtde. última compra:</span><span class="valor">${i.qtdeUltimaCompra}</span></div>
+                </div>`;
+            }
+            html += `</div>`;
+            conteudoDiv.innerHTML = html;
+        }
+        if (totalPaginas > 1) {
+            const pagDiv = document.getElementById('paginacaoValidade');
+            pagDiv.style.display = 'flex';
+            pagDiv.innerHTML = gerarBotoesPaginacao(paginaAtual, totalPaginas, 'validade');
+        } else {
+            document.getElementById('paginacaoValidade').style.display = 'none';
+        }
+    }
+
+    function renderizarValidadeAgrupada() {
+        const { dadosFiltrados, paginaAtual, totalPaginas } = paginacao.validade;
+        const inicio = (paginaAtual - 1) * ITENS_POR_PAGINA;
+        const grupos = ordenarDados(dadosFiltrados.slice(inicio, inicio+ITENS_POR_PAGINA), ordenacao.validade.coluna, ordenacao.validade.direcao);
+        const conteudoDiv = document.getElementById('conteudoValidade');
+        if (!grupos.length) {
+            conteudoDiv.innerHTML = '<div class="vazio">Nenhum produto.</div>';
+            document.getElementById('paginacaoValidade').style.display = 'none';
+            return;
+        }
+
+        if (visao.validade === 'tabela') {
+            let html = `<div class="tabela-wrapper"><table id="tabela-validade-agrupada"><thead>`;
+            html += `<th></th>`; // seta
+            const colunas = [
+                { chave: 'codigo', label: 'Código' },
+                { chave: 'produto', label: 'Produto' },
+                { chave: 'fornecedor', label: 'Fornecedor' },
+                { chave: 'totalEstoque', label: 'Estoque total' },
+                { chave: 'numLotes', label: 'Nº lotes' },
+                { chave: 'validadeProxima', label: 'Validade próxima' },
+                { chave: 'diasProximo', label: 'Dias' }
+            ];
+            colunas.forEach(col => {
+                html += `<th>${col.label} <span class="ordenar-btn" data-coluna="${col.chave}">⇅</span></th>`;
+            });
+            html += `</thead><tbody>`;
+            grupos.forEach((g, idx) => {
+                const st = statusDoItem(g.diasProximo);
+                html += `<tr style="border-left: 6px solid ${st.cor}; cursor:pointer;" onclick="toggleLotes(${idx})">
+                    <td><span id="seta-${idx}">▸</span></td>
+                    <td class="codigo">${g.codigo}</td>
+                    <td>${g.produto}</td>
+                    <td>${g.fornecedor}</td>
+                    <td class="qtde">${g.totalEstoque}</td>
+                    <td class="qtde">${g.numLotes}</td>
+                    <td>${g.validadeProxima ? g.validadeProxima.toLocaleDateString('pt-BR') : ''}</td>
+                    <td class="qtde">${g.diasProximo}</td>
+                </tr>`;
+                html += `<tr id="lotes-${idx}" style="display:none;">
+                    <td colspan="8" style="background:#f8fafc; padding:0;">
+                        <table style="width:100%; border-collapse:collapse;">
+                            <thead><tr><th>Validade</th><th>Estoque</th><th>Última compra</th><th>Qtde última compra</th><th>Dias</th><th>Status</th></tr></thead>
+                            <tbody>`;
+                g.lotes.forEach(l => {
+                    const lst = statusDoItem(l.diasRestantes);
+                    html += `<tr>
+                        <td>${l.dataValidade.toLocaleDateString('pt-BR')}</td>
+                        <td class="qtde">${l.estoqueAtual}</td>
+                        <td>${l.ultimaCompra}</td>
+                        <td class="qtde">${l.qtdeUltimaCompra}</td>
+                        <td class="qtde">${l.diasRestantes}</td>
+                        <td><span style="background:${lst.cor};color:white;padding:2px 8px;border-radius:12px;">${lst.texto}</span></td>
+                    </tr>`;
+                });
+                html += `</tbody></table></td></tr>`;
+            });
+            html += `</tbody></table></div>`;
+            conteudoDiv.innerHTML = html;
+            attachOrdenacao('tabela-validade-agrupada', 'validade');
+        } else {
+            // Cards agrupados com details
+            let html = `<div class="cards-view">`;
+            grupos.forEach((g, idx) => {
+                const st = statusDoItem(g.diasProximo);
+                html += `<div class="card-item" style="border-left-color: ${st.cor};">
+                    <div class="card-linha"><span class="label">Status:</span><span class="valor" style="background:${st.cor};color:white;padding:2px 8px;border-radius:12px;">${st.texto}</span></div>
+                    <div class="card-linha"><span class="label">Código:</span><span class="valor">${g.codigo}</span></div>
+                    <div class="card-linha"><span class="label">Produto:</span><span class="valor">${g.produto}</span></div>
+                    <div class="card-linha"><span class="label">Fornecedor:</span><span class="valor">${g.fornecedor}</span></div>
+                    <div class="card-linha"><span class="label">Estoque total:</span><span class="valor">${g.totalEstoque}</span></div>
+                    <div class="card-linha"><span class="label">Nº lotes:</span><span class="valor">${g.numLotes}</span></div>
+                    <div class="card-linha"><span class="label">Validade próxima:</span><span class="valor">${g.validadeProxima ? g.validadeProxima.toLocaleDateString('pt-BR') : ''}</span></div>
+                    <div class="card-linha"><span class="label">Dias restantes:</span><span class="valor">${g.diasProximo}</span></div>
+                    <details>
+                        <summary>Ver lotes (${g.numLotes})</summary>
+                        <table style="width:100%; border-collapse:collapse; margin-top:8px;">
+                            <thead><tr><th>Validade</th><th>Estoque</th><th>Última compra</th><th>Qtde</th><th>Dias</th></tr></thead>
+                            <tbody>`;
+                g.lotes.forEach(l => {
+                    html += `<tr>
+                        <td>${l.dataValidade.toLocaleDateString('pt-BR')}</td>
+                        <td class="qtde">${l.estoqueAtual}</td>
+                        <td>${l.ultimaCompra}</td>
+                        <td class="qtde">${l.qtdeUltimaCompra}</td>
+                        <td class="qtde">${l.diasRestantes}</td>
+                    </tr>`;
+                });
+                html += `</tbody></table></details></div>`;
+            });
+            html += `</div>`;
+            conteudoDiv.innerHTML = html;
+        }
+
+        if (totalPaginas > 1) {
+            const pagDiv = document.getElementById('paginacaoValidade');
+            pagDiv.style.display = 'flex';
+            pagDiv.innerHTML = gerarBotoesPaginacao(paginaAtual, totalPaginas, 'validade');
+        } else {
+            document.getElementById('paginacaoValidade').style.display = 'none';
+        }
+    }
+
+    // Função global para expandir/recolher linha de lotes (tabela agrupada)
+    window.toggleLotes = function(idx) {
+        const linha = document.getElementById(`lotes-${idx}`);
+        const seta = document.getElementById(`seta-${idx}`);
+        if (linha && seta) {
+            if (linha.style.display === 'none') {
+                linha.style.display = 'table-row';
+                seta.textContent = '▾';
+            } else {
+                linha.style.display = 'none';
+                seta.textContent = '▸';
+            }
+        }
+    };
+
+    // ==================== FUNÇÕES GLOBAIS ====================
+    function attachQrEvents() {
+        document.querySelectorAll('.btn-qr').forEach(btn => {
+            btn.removeEventListener('click', qrClickHandler);
+            btn.addEventListener('click', qrClickHandler);
+        });
+    }
+
+    function qrClickHandler(e) {
+        const valor = e.currentTarget.dataset.valor;
+        if (!valor) return;
+        const container = document.getElementById('qrCodeContainer');
+        container.innerHTML = '';
+        new QRCode(container, { text: valor, width: 200, height: 200, colorDark: "#000000", colorLight: "#ffffff", correctLevel: QRCode.CorrectLevel.M });
+        document.getElementById('qrModal').classList.add('ativo');
+    }
+
+    function fecharModalQR() {
+        document.getElementById('qrModal').classList.remove('ativo');
+        document.getElementById('qrCodeContainer').innerHTML = '';
+    }
+    window.fecharModalQR = fecharModalQR;
+
+    function gerarBotoesPaginacao(paginaAtual, totalPaginas, aba) {
+        let botoes = '';
+        for (let i = 1; i <= totalPaginas; i++) {
+            if (i === 1 || i === totalPaginas || (i >= paginaAtual - 2 && i <= paginaAtual + 2)) {
+                botoes += `<button class="pag-btn ${i === paginaAtual ? 'ativo' : ''}" data-pagina="${i}" data-aba="${aba}">${i}</button>`;
+            } else if (i === paginaAtual - 3 || i === paginaAtual + 3) {
+                botoes += `<span>...</span>`;
+            }
+        }
+        return botoes;
+    }
+
+    function attachOrdenacao(tabelaId, aba) {
+        const tabela = document.querySelector(`#${tabelaId}`);
+        if (!tabela) return;
+        tabela.querySelectorAll('.ordenar-btn').forEach(btn => {
+            btn.addEventListener('click', e => {
+                const col = btn.dataset.coluna;
+                if (ordenacao[aba].coluna === col) {
+                    ordenacao[aba].direcao = ordenacao[aba].direcao === 'asc' ? 'desc' : 'asc';
+                } else {
+                    ordenacao[aba].coluna = col;
+                    ordenacao[aba].direcao = 'asc';
+                }
+                if (aba === 'codbalanca') renderizarCodBalanca();
+                else if (aba === 'estoque') renderizarEstoque();
+                else if (aba === 'analise') renderizarAnalise();
+                else if (aba === 'validade') renderizarValidade();
+            });
+        });
+    }
+
+    function alternarVisao(aba) {
+        visao[aba] = visao[aba] === 'tabela' ? 'cards' : 'tabela';
+        localStorage.setItem(`visao_${aba}`, visao[aba]);
+        if (aba === 'codbalanca') renderizarCodBalanca();
+        else if (aba === 'estoque') renderizarEstoque();
+        else if (aba === 'analise') renderizarAnalise();
+        else if (aba === 'validade') renderizarValidade();
+    }
+
+    // Event listeners
+    document.getElementById('btnVisaoCodBalanca').addEventListener('click', () => alternarVisao('codbalanca'));
+    document.getElementById('btnVisaoEstoque').addEventListener('click', () => alternarVisao('estoque'));
+    document.getElementById('btnVisaoAnalise').addEventListener('click', () => alternarVisao('analise'));
+    document.getElementById('btnVisaoValidade').addEventListener('click', () => alternarVisao('validade'));
+
+    // Botão de alternância do modo agrupado
+    document.getElementById('btnModoValidade').addEventListener('click', () => {
+        modoAgrupadoValidade = !modoAgrupadoValidade;
+        document.getElementById('btnModoValidade').textContent = modoAgrupadoValidade ? '🗂️ Modo: Agrupado' : '📋 Modo: Detalhado';
+        aplicarFiltroValidade();
+    });
+
+    document.getElementById('buscaCodBalanca').addEventListener('input', aplicarFiltroCodBalanca);
+    document.getElementById('buscaEstoque').addEventListener('input', aplicarFiltroEstoque);
+    document.getElementById('buscaEstoqueFornecedor').addEventListener('input', aplicarFiltroEstoque);
+    document.getElementById('buscaAnalise').addEventListener('input', aplicarFiltroAnalise);
+    document.getElementById('buscaAnaliseFornecedor').addEventListener('input', aplicarFiltroAnalise);
+    document.getElementById('buscaValidade').addEventListener('input', aplicarFiltroValidade);
+    document.getElementById('buscaValidadeFornecedor').addEventListener('input', aplicarFiltroValidade);
+
+    document.querySelectorAll('.filtro-status').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            filtroStatusValidade = e.target.dataset.status;
+            aplicarFiltroValidade();
+        });
+    });
+
+    document.getElementById('btnConfigColunas').addEventListener('click', abrirModalColunas);
+    document.getElementById('fecharModal').addEventListener('click', fecharModalColunas);
+    document.getElementById('salvarColunas').addEventListener('click', salvarColunasModal);
+
+    document.addEventListener('click', (e) => {
+        if (e.target.classList.contains('pag-btn')) {
+            const pagina = parseInt(e.target.dataset.pagina);
+            const aba = e.target.dataset.aba;
+            if (!isNaN(pagina) && aba && paginacao[aba]) {
+                paginacao[aba].paginaAtual = pagina;
+                if (aba === 'codbalanca') renderizarCodBalanca();
+                else if (aba === 'estoque') renderizarEstoque();
+                else if (aba === 'analise') renderizarAnalise();
+                else if (aba === 'validade') renderizarValidade();
+            }
+        }
+    });
+
+    globalSearch.addEventListener('input', (e) => {
+        const termo = e.target.value.trim().toLowerCase();
+        let abaAtiva = null;
+        for (const [id, el] of Object.entries(conteudos)) {
+            if (el.classList.contains('ativo')) { abaAtiva = id; break; }
+        }
+        if (abaAtiva === 'codbalanca') {
+            document.getElementById('buscaCodBalanca').value = termo;
+            aplicarFiltroCodBalanca();
+        } else if (abaAtiva === 'estoquevirtual') {
+            document.getElementById('buscaEstoque').value = termo;
+            document.getElementById('buscaEstoqueFornecedor').value = '';
+            aplicarFiltroEstoque();
+        } else if (abaAtiva === 'analise') {
+            document.getElementById('buscaAnalise').value = termo;
+            document.getElementById('buscaAnaliseFornecedor').value = '';
+            aplicarFiltroAnalise();
+        } else if (abaAtiva === 'validade') {
+            document.getElementById('buscaValidade').value = termo;
+            document.getElementById('buscaValidadeFornecedor').value = '';
+            aplicarFiltroValidade();
+        }
+    });
+
+    function trocarAba(abaId) {
+        for (const [id, el] of Object.entries(conteudos)) {
+            el.classList.toggle('ativo', id === abaId);
+        }
+        abaBtns.forEach(btn => {
+            btn.classList.toggle('ativo', btn.dataset.aba === abaId);
+        });
+    }
+
+    abaBtns.forEach(btn => btn.addEventListener('click', () => trocarAba(btn.dataset.aba)));
+
+    // Restaurar preferências
+    for (const aba of ['codbalanca', 'estoque', 'analise', 'validade']) {
+        const saved = localStorage.getItem(`visao_${aba}`);
+        if (saved === 'tabela' || saved === 'cards') visao[aba] = saved;
+    }
+
+    carregarPreferenciasAnalise();
+
+    // Carregar todos os dados
+    Promise.all([
+        carregarAtualizada(),
+        carregarCodBalanca(),
+        carregarEstoque(),
+        carregarAnalise(),
+        carregarValidade()
+    ]).then(() => {
+        console.log('Carregamento concluído');
+    });
+    <!-- Modal do Scanner -->
+<div id="modalScanner" class="modal">
+    <div class="modal-conteudo" style="width:min(92vw, 520px); max-width:none;">
+        <h3 id="tituloScanner">Escaneando…</h3>
+        <div id="leitor" style="width:100%; border-radius:12px; overflow:hidden; background:#000;"></div>
+        <div id="statusScanner" style="margin:10px 0; font-size:0.9rem; color:#475569;"></div>
+        <button onclick="fecharScanner()" style="background:#64748b;">Fechar</button>
+    </div>
+</div>
+    // ==================== ABA VÍNCULO LOCAL (IndexedDB) ====================
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyOX3a0-_Tb4xOiScklwNMi_SSNTxdBuQSehD3-AqAkgbNPi8-MCblFSVbyBrbBk8yX/exec';
+const TOKEN_VINC = 'teste000';
+
+const dbPromise = idb.openDB('gestao-setor', 1, {
+  upgrade(db) {
+    if (!db.objectStoreNames.contains('vinculacoes')) {
+      const s = db.createObjectStore('vinculacoes', { keyPath: 'id', autoIncrement: true });
+      s.createIndex('status', 'status');
+      s.createIndex('local', 'local');
+      s.createIndex('dataHora', 'dataHora');
+    }
+    if (!db.objectStoreNames.contains('config')) {
+      db.createObjectStore('config', { keyPath: 'chave' });
+    }
+  }
+});
+
+const db = {
+  async getAll()          { return (await dbPromise).getAll('vinculacoes'); },
+  async add(rec)          { return (await dbPromise).add('vinculacoes', rec); },
+  async put(rec)          { return (await dbPromise).put('vinculacoes', rec); },
+  async del(id)           { return (await dbPromise).delete('vinculacoes', id); },
+  async getConfig(k)      { const r = await (await dbPromise).get('config', k); return r ? r.valor : null; },
+  async setConfig(k, v)   { return (await dbPromise).put('config', { chave: k, valor: v }); }
+};
+
+let scannerInstance = null;
+let modoScanner = null;
+let vinculacaoFila = [];
+let localVinculoAtual = '';
+
+async function carregarVinculacao() {
+  vinculacaoFila = await db.getAll();
+  localVinculoAtual = (await db.getConfig('localAtual')) || '';
+  renderizarVinculacao();
+}
+
+async function definirLocalVinculo(texto) {
+  localVinculoAtual = texto.trim();
+  await db.setConfig('localAtual', localVinculoAtual);
+  renderizarVinculacao();
+}
+
+function renderizarVinculacao() {
+  const div = document.getElementById('conteudoVinculacao');
+  const pendentes = vinculacaoFila.filter(r => r.status === 'pendente');
+
+  document.getElementById('qtdFila').innerText = pendentes.length;
+  document.getElementById('statsVinculacao').innerText =
+    `${vinculacaoFila.length} itens no total · ${pendentes.length} pendentes`;
+  document.getElementById('localAtualTexto').innerText =
+    localVinculoAtual || '— não definido —';
+
+  if (!vinculacaoFila.length) {
+    div.innerHTML = '<div class="vazio">Nenhum item. Clique em "Ler Produto" para começar.</div>';
+    return;
+  }
+
+  const ordenados = [...vinculacaoFila].sort(
+    (a, b) => new Date(b.dataHora) - new Date(a.dataHora)
+  );
+
+  let html = `<div class="tabela-wrapper"><table class="vinculo-tabela"><thead><tr>
+    <th>Local</th><th>Código</th><th>Produto</th><th>Validade</th>
+    <th>Status</th><th></th></tr></thead><tbody>`;
+
+  ordenados.forEach(r => {
+    const semLocal = !r.local;
+    const classes = [
+      r.status === 'sincronizado' ? 'sincronizado' : '',
+      semLocal ? 'sem-local' : ''
+    ].filter(Boolean).join(' ');
+
+    html += `<tr class="${classes}">
+      <td class="codigo">${r.local || '⚠️ —'}</td>
+      <td class="codigo">${r.codigo}</td>
+      <td>${r.produto || '<em>desconhecido</em>'}</td>
+      <td><input type="date" value="${r.validade || ''}"
+                 onchange="atualizarValidadeVinculo(${r.id}, this.value)"></td>
+      <td>${r.status === 'sincronizado'
+             ? '<span class="vinculo-badge-ok">✓ Enviado</span>'
+             : '<span class="vinculo-badge-pend">⏳ Pendente</span>'}</td>
+      <td><button class="btn-acao" style="padding:4px 10px;"
+                 onclick="removerVinculo(${r.id})">✕</button></td>
+    </tr>`;
+  });
+  html += '</tbody></table></div>';
+  div.innerHTML = html;
+}
+
+async function adicionarProdutoVinculo(codigo) {
+  const produto = buscarNomeProdutoVinculo(codigo);
+  const registro = {
+    local: localVinculoAtual,
+    codigo: codigo.trim(),
+    produto: produto || '',
+    validade: '',
+    dataHora: new Date().toISOString(),
+    status: 'pendente'
+  };
+  const id = await db.add(registro);
+  registro.id = id;
+  vinculacaoFila.push(registro);
+  renderizarVinculacao();
+  setTimeout(() => {
+    const inputs = document.querySelectorAll('.vinculo-tabela input[type="date"]');
+    if (inputs.length) inputs[0].focus();
+  }, 80);
+}
+
+async function atualizarValidadeVinculo(id, valor) {
+  const rec = vinculacaoFila.find(r => r.id === id);
+  if (!rec) return;
+  rec.validade = valor;
+  await db.put(rec);
+}
+
+async function removerVinculo(id) {
+  await db.del(id);
+  vinculacaoFila = vinculacaoFila.filter(r => r.id !== id);
+  renderizarVinculacao();
+}
+window.removerVinculo = removerVinculo;
+window.atualizarValidadeVinculo = atualizarValidadeVinculo;
+
+function buscarNomeProdutoVinculo(codigo) {
+  if (!dadosEstoque || !dadosEstoque.length) return '';
+  const cod = codigo.toString().replace(/^0+/, '');
+  const item = dadosEstoque.find(e => {
+    const c = (e.Codigo || '').toString().replace(/^0+/, '');
+    return c === cod || c === codigo.toString();
+  });
+  return item ? (item.Nome || '') : '';
+}
+
+async function abrirScanner(modo) {
+  modoScanner = modo;
+  document.getElementById('tituloScanner').innerText =
+    modo === 'local' ? '📍 Escaneie o LOCAL' : '📷 Escaneie o PRODUTO';
+  document.getElementById('statusScanner').innerText = 'Iniciando câmera…';
+  document.getElementById('modalScanner').classList.add('ativo');
+
+  try {
+    scannerInstance = new Html5Qrcode("leitor");
+    await scannerInstance.start(
+      { facingMode: "environment" },
+      { fps: 10, qrbox: { width: 280, height: 160 } },
+      (texto) => onScanSuccess(texto),
+      () => {}
+    );
+    document.getElementById('statusScanner').innerText =
+      modo === 'local'
+        ? 'Aponte para o código do local'
+        : `Aponte para o produto (local: ${localVinculoAtual || '⚠️ sem local'})`;
+  } catch (err) {
+    document.getElementById('statusScanner').innerText =
+      '❌ Erro ao abrir câmera: ' + err.message;
+  }
+}
+
+async function onScanSuccess(texto) {
+  if (navigator.vibrate) navigator.vibrate(80);
+
+  if (modoScanner === 'local') {
+    await definirLocalVinculo(texto);
+    await fecharScanner();
+    setTimeout(() => abrirScanner('produto'), 300);
+  } else {
+    await adicionarProdutoVinculo(texto);
+    document.getElementById('statusScanner').innerText =
+      `✓ Adicionado: ${texto}. Continue escaneando…`;
+  }
+}
+
+async function fecharScanner() {
+  if (scannerInstance) {
+    try { await scannerInstance.stop(); scannerInstance.clear(); } catch (e) {}
+    scannerInstance = null;
+  }
+  document.getElementById('modalScanner').classList.remove('ativo');
+  document.getElementById('leitor').innerHTML = '';
+}
+window.fecharScanner = fecharScanner;
+
+async function sincronizarVinculacao() {
+  const pendentes = vinculacaoFila.filter(r => r.status === 'pendente');
+  if (!pendentes.length) { alert('Nada para sincronizar.'); return; }
+
+  const semData = pendentes.filter(r => !r.validade);
+  if (semData.length && !confirm(`${semData.length} item(ns) sem data de validade. Enviar mesmo assim?`)) return;
+
+  if (!navigator.onLine) {
+    alert('Sem internet. Os dados ficam salvos no dispositivo e serão enviados depois.');
+    return;
+  }
+
+  const btn = document.getElementById('btnSincronizar');
+  const textoOriginal = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = '☁️ Enviando…';
+
+  try {
+    const resp = await fetch(https://script.google.com/macros/s/AKfycbyOX3a0-_Tb4xOiScklwNMi_SSNTxdBuQSehD3-AqAkgbNPi8-MCblFSVbyBrbBk8yX/exec, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({
+        token: teste000,
+        registros: pendentes.map(({ id, status, ...r }) => r)
+      })
+    });
+    const json = await resp.json();
+    if (json.ok) {
+      for (const p of pendentes) {
+        p.status = 'sincronizado';
+        await db.put(p);
+      }
+      renderizarVinculacao();
+      alert(`✓ ${json.inseridos || pendentes.length} registro(s) enviados.`);
+    } else {
+      alert('Falha no envio: ' + (json.erro || 'desconhecido'));
+    }
+  } catch (e) {
+    alert('Erro de rede. Fila mantida no dispositivo.\n' + e.message);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = textoOriginal;
+  }
+}
+
+document.getElementById('btnLerLocal').addEventListener('click', () => abrirScanner('local'));
+document.getElementById('btnLerProduto').addEventListener('click', () => {
+  if (!localVinculoAtual) { alert('Defina um local primeiro (botão "Ler Local").'); return; }
+  abrirScanner('produto');
+});
+document.getElementById('btnTrocarLocal').addEventListener('click', async () => {
+  if (confirm('Trocar o local atual? Os itens já lidos ficam salvos.')) {
+    localVinculoAtual = '';
+    await db.setConfig('localAtual', '');
+    renderizarVinculacao();
+    abrirScanner('local');
+  }
+});
+document.getElementById('btnSincronizar').addEventListener('click', sincronizarVinculacao);
+document.getElementById('btnLimparTudo').addEventListener('click', async () => {
+  if (!confirm('Apagar da lista local os itens JÁ ENVIADOS? (Pendentes são mantidos.)')) return;
+  const sincronizados = vinculacaoFila.filter(r => r.status === 'sincronizado');
+  for (const r of sincronizados) await db.del(r.id);
+  vinculacaoFila = vinculacaoFila.filter(r => r.status !== 'sincronizado');
+  renderizarVinculacao();
+});
+
+window.addEventListener('online', () => {
+  if (vinculacaoFila.some(r => r.status === 'pendente')) sincronizarVinculacao();
+});
+
+carregarVinculacao();
+
+// Registro do Service Worker (PWA / offline)
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js')
+      .then(reg => console.log('✓ SW registrado:', reg.scope))
+      .catch(err => console.warn('SW falhou:', err));
+  });
+}
+</script>
+</body>
+</html>
