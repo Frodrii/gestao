@@ -5,12 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
     <title>📊 Gestão de Setor</title>
     <link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#2563eb">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Gestão">
-<link rel="apple-touch-icon" href="icon-192.png">
+    <meta name="theme-color" content="#2563eb">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="Gestão">
+    <link rel="apple-touch-icon" href="icon-192.png">
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
@@ -374,11 +374,51 @@
             .aba-btn { padding: 8px 12px; font-size: 0.8rem; }
             .filtros-top { flex-direction: column; align-items: stretch; }
         }
-        
+
+        /* ====== CSS DA ABA VÍNCULO LOCAL ====== */
+        .vinculo-local-bar {
+            background: linear-gradient(135deg, #2563eb, #1e40af);
+            color: white;
+            padding: 16px 20px;
+            border-radius: 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 16px;
+            flex-wrap: wrap;
+        }
+        .vinculo-local-label { opacity: 0.85; font-size: 0.9rem; }
+        .vinculo-local-valor {
+            font-size: 1.4rem;
+            font-weight: 700;
+            font-family: monospace;
+            margin-left: 8px;
+        }
+        .vinculo-local-bar .btn-acao {
+            background: rgba(255,255,255,0.15);
+            color: white;
+            border-color: rgba(255,255,255,0.3);
+        }
+        .vinculo-local-bar .btn-acao:hover { background: rgba(255,255,255,0.25); }
+
+        .vinculo-tabela input[type="date"] {
+            padding: 6px 10px;
+            border: 1.5px solid #cbd5e1;
+            border-radius: 8px;
+            font-family: inherit;
+            font-size: 0.9rem;
+        }
+        .vinculo-tabela tr.sincronizado { opacity: 0.55; }
+        .vinculo-tabela tr.sem-local { background: #fef3c7; }
+        .vinculo-badge-ok { color: #059669; font-weight: 600; }
+        .vinculo-badge-pend { color: #d97706; font-weight: 600; }
+
+        #leitor video { width: 100% !important; height: auto !important; }
     </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/idb@8.0.0/build/umd.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/idb@8.0.0/build/umd.js"></script>
 </head>
 <body>
 <div class="container">
@@ -475,7 +515,8 @@
         <div id="conteudoValidade"></div>
         <div id="paginacaoValidade" class="paginacao" style="display: none;"></div>
     </div>
-        <!-- ABA VÍNCULO LOCAL -->
+
+    <!-- ABA VÍNCULO LOCAL -->
     <div id="aba-vinculacao" class="conteudo-aba">
         <div class="vinculo-local-bar">
             <div class="vinculo-local-info">
@@ -515,6 +556,16 @@
         <div id="checklistColunas"></div>
         <button id="salvarColunas">Salvar</button>
         <button id="fecharModal">Cancelar</button>
+    </div>
+</div>
+
+<!-- Modal do Scanner -->
+<div id="modalScanner" class="modal">
+    <div class="modal-conteudo" style="width:min(92vw, 520px); max-width:none;">
+        <h3 id="tituloScanner">Escaneando…</h3>
+        <div id="leitor" style="width:100%; border-radius:12px; overflow:hidden; background:#000;"></div>
+        <div id="statusScanner" style="margin:10px 0; font-size:0.9rem; color:#475569;"></div>
+        <button onclick="fecharScanner()" style="background:#64748b;">Fechar</button>
     </div>
 </div>
 
@@ -575,7 +626,7 @@
         codbalanca: document.getElementById('aba-codbalanca'),
         estoquevirtual: document.getElementById('aba-estoquevirtual'),
         analise: document.getElementById('aba-analise'),
-        validade: document.getElementById('aba-validade')
+        validade: document.getElementById('aba-validade'),
         vinculacao: document.getElementById('aba-vinculacao')
     };
     const globalSearch = document.getElementById('globalSearch');
@@ -1122,7 +1173,6 @@
             }
         });
 
-        // Ordena os lotes dentro de cada grupo por data de validade
         for (const grupo of mapa.values()) {
             grupo.lotes.sort((a, b) => a.dataValidade - b.dataValidade);
         }
@@ -1145,7 +1195,6 @@
                 return match;
             });
         }
-        // Aplicar filtro de status
         if (filtroStatusValidade !== 'todos') {
             filtrados = filtrados.filter(i => {
                 const d = i.diasRestantes;
@@ -1160,17 +1209,9 @@
             });
         }
 
-        // Agrupa se necessário
         let dadosParaExibir;
         if (modoAgrupadoValidade) {
             const grupos = agruparValidades(filtrados);
-            // Aplica o filtro de status também nos grupos (se necessário)
-            if (filtroStatusValidade !== 'todos') {
-                // O filtro já foi aplicado aos itens; precisamos filtrar os grupos que não têm itens que passam?
-                // Como agrupamos apenas itens que passaram, grupos sem itens não aparecerão.
-                // Mas o grupo pode ter itens que passaram e outros não; nesse caso, a validadeProxima deve ser baseada apenas nos itens filtrados.
-                // Já está correto, pois agrupamos os itens filtrados.
-            }
             dadosParaExibir = grupos;
             document.getElementById('statsValidade').innerText = `${dadosParaExibir.length} produtos`;
         } else {
@@ -1279,7 +1320,7 @@
 
         if (visao.validade === 'tabela') {
             let html = `<div class="tabela-wrapper"><table id="tabela-validade-agrupada"><thead>`;
-            html += `<th></th>`; // seta
+            html += `<th></th>`;
             const colunas = [
                 { chave: 'codigo', label: 'Código' },
                 { chave: 'produto', label: 'Produto' },
@@ -1327,7 +1368,6 @@
             conteudoDiv.innerHTML = html;
             attachOrdenacao('tabela-validade-agrupada', 'validade');
         } else {
-            // Cards agrupados com details
             let html = `<div class="cards-view">`;
             grupos.forEach((g, idx) => {
                 const st = statusDoItem(g.diasProximo);
@@ -1369,7 +1409,6 @@
         }
     }
 
-    // Função global para expandir/recolher linha de lotes (tabela agrupada)
     window.toggleLotes = function(idx) {
         const linha = document.getElementById(`lotes-${idx}`);
         const seta = document.getElementById(`seta-${idx}`);
@@ -1448,13 +1487,11 @@
         else if (aba === 'validade') renderizarValidade();
     }
 
-    // Event listeners
     document.getElementById('btnVisaoCodBalanca').addEventListener('click', () => alternarVisao('codbalanca'));
     document.getElementById('btnVisaoEstoque').addEventListener('click', () => alternarVisao('estoque'));
     document.getElementById('btnVisaoAnalise').addEventListener('click', () => alternarVisao('analise'));
     document.getElementById('btnVisaoValidade').addEventListener('click', () => alternarVisao('validade'));
 
-    // Botão de alternância do modo agrupado
     document.getElementById('btnModoValidade').addEventListener('click', () => {
         modoAgrupadoValidade = !modoAgrupadoValidade;
         document.getElementById('btnModoValidade').textContent = modoAgrupadoValidade ? '🗂️ Modo: Agrupado' : '📋 Modo: Detalhado';
@@ -1529,7 +1566,6 @@
 
     abaBtns.forEach(btn => btn.addEventListener('click', () => trocarAba(btn.dataset.aba)));
 
-    // Restaurar preferências
     for (const aba of ['codbalanca', 'estoque', 'analise', 'validade']) {
         const saved = localStorage.getItem(`visao_${aba}`);
         if (saved === 'tabela' || saved === 'cards') visao[aba] = saved;
@@ -1547,281 +1583,273 @@
     ]).then(() => {
         console.log('Carregamento concluído');
     });
-    <!-- Modal do Scanner -->
-<div id="modalScanner" class="modal">
-    <div class="modal-conteudo" style="width:min(92vw, 520px); max-width:none;">
-        <h3 id="tituloScanner">Escaneando…</h3>
-        <div id="leitor" style="width:100%; border-radius:12px; overflow:hidden; background:#000;"></div>
-        <div id="statusScanner" style="margin:10px 0; font-size:0.9rem; color:#475569;"></div>
-        <button onclick="fecharScanner()" style="background:#64748b;">Fechar</button>
-    </div>
-</div>
+
     // ==================== ABA VÍNCULO LOCAL (IndexedDB) ====================
-const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyOX3a0-_Tb4xOiScklwNMi_SSNTxdBuQSehD3-AqAkgbNPi8-MCblFSVbyBrbBk8yX/exec';
-const TOKEN_VINC = 'teste000';
+    const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyOX3a0-_Tb4xOiScklwNMi_SSNTxdBuQSehD3-AqAkgbNPi8-MCblFSVbyBrbBk8yX/exec';
+    const TOKEN_VINC = 'teste000';
 
-const dbPromise = idb.openDB('gestao-setor', 1, {
-  upgrade(db) {
-    if (!db.objectStoreNames.contains('vinculacoes')) {
-      const s = db.createObjectStore('vinculacoes', { keyPath: 'id', autoIncrement: true });
-      s.createIndex('status', 'status');
-      s.createIndex('local', 'local');
-      s.createIndex('dataHora', 'dataHora');
-    }
-    if (!db.objectStoreNames.contains('config')) {
-      db.createObjectStore('config', { keyPath: 'chave' });
-    }
-  }
-});
-
-const db = {
-  async getAll()          { return (await dbPromise).getAll('vinculacoes'); },
-  async add(rec)          { return (await dbPromise).add('vinculacoes', rec); },
-  async put(rec)          { return (await dbPromise).put('vinculacoes', rec); },
-  async del(id)           { return (await dbPromise).delete('vinculacoes', id); },
-  async getConfig(k)      { const r = await (await dbPromise).get('config', k); return r ? r.valor : null; },
-  async setConfig(k, v)   { return (await dbPromise).put('config', { chave: k, valor: v }); }
-};
-
-let scannerInstance = null;
-let modoScanner = null;
-let vinculacaoFila = [];
-let localVinculoAtual = '';
-
-async function carregarVinculacao() {
-  vinculacaoFila = await db.getAll();
-  localVinculoAtual = (await db.getConfig('localAtual')) || '';
-  renderizarVinculacao();
-}
-
-async function definirLocalVinculo(texto) {
-  localVinculoAtual = texto.trim();
-  await db.setConfig('localAtual', localVinculoAtual);
-  renderizarVinculacao();
-}
-
-function renderizarVinculacao() {
-  const div = document.getElementById('conteudoVinculacao');
-  const pendentes = vinculacaoFila.filter(r => r.status === 'pendente');
-
-  document.getElementById('qtdFila').innerText = pendentes.length;
-  document.getElementById('statsVinculacao').innerText =
-    `${vinculacaoFila.length} itens no total · ${pendentes.length} pendentes`;
-  document.getElementById('localAtualTexto').innerText =
-    localVinculoAtual || '— não definido —';
-
-  if (!vinculacaoFila.length) {
-    div.innerHTML = '<div class="vazio">Nenhum item. Clique em "Ler Produto" para começar.</div>';
-    return;
-  }
-
-  const ordenados = [...vinculacaoFila].sort(
-    (a, b) => new Date(b.dataHora) - new Date(a.dataHora)
-  );
-
-  let html = `<div class="tabela-wrapper"><table class="vinculo-tabela"><thead><tr>
-    <th>Local</th><th>Código</th><th>Produto</th><th>Validade</th>
-    <th>Status</th><th></th></tr></thead><tbody>`;
-
-  ordenados.forEach(r => {
-    const semLocal = !r.local;
-    const classes = [
-      r.status === 'sincronizado' ? 'sincronizado' : '',
-      semLocal ? 'sem-local' : ''
-    ].filter(Boolean).join(' ');
-
-    html += `<tr class="${classes}">
-      <td class="codigo">${r.local || '⚠️ —'}</td>
-      <td class="codigo">${r.codigo}</td>
-      <td>${r.produto || '<em>desconhecido</em>'}</td>
-      <td><input type="date" value="${r.validade || ''}"
-                 onchange="atualizarValidadeVinculo(${r.id}, this.value)"></td>
-      <td>${r.status === 'sincronizado'
-             ? '<span class="vinculo-badge-ok">✓ Enviado</span>'
-             : '<span class="vinculo-badge-pend">⏳ Pendente</span>'}</td>
-      <td><button class="btn-acao" style="padding:4px 10px;"
-                 onclick="removerVinculo(${r.id})">✕</button></td>
-    </tr>`;
-  });
-  html += '</tbody></table></div>';
-  div.innerHTML = html;
-}
-
-async function adicionarProdutoVinculo(codigo) {
-  const produto = buscarNomeProdutoVinculo(codigo);
-  const registro = {
-    local: localVinculoAtual,
-    codigo: codigo.trim(),
-    produto: produto || '',
-    validade: '',
-    dataHora: new Date().toISOString(),
-    status: 'pendente'
-  };
-  const id = await db.add(registro);
-  registro.id = id;
-  vinculacaoFila.push(registro);
-  renderizarVinculacao();
-  setTimeout(() => {
-    const inputs = document.querySelectorAll('.vinculo-tabela input[type="date"]');
-    if (inputs.length) inputs[0].focus();
-  }, 80);
-}
-
-async function atualizarValidadeVinculo(id, valor) {
-  const rec = vinculacaoFila.find(r => r.id === id);
-  if (!rec) return;
-  rec.validade = valor;
-  await db.put(rec);
-}
-
-async function removerVinculo(id) {
-  await db.del(id);
-  vinculacaoFila = vinculacaoFila.filter(r => r.id !== id);
-  renderizarVinculacao();
-}
-window.removerVinculo = removerVinculo;
-window.atualizarValidadeVinculo = atualizarValidadeVinculo;
-
-function buscarNomeProdutoVinculo(codigo) {
-  if (!dadosEstoque || !dadosEstoque.length) return '';
-  const cod = codigo.toString().replace(/^0+/, '');
-  const item = dadosEstoque.find(e => {
-    const c = (e.Codigo || '').toString().replace(/^0+/, '');
-    return c === cod || c === codigo.toString();
-  });
-  return item ? (item.Nome || '') : '';
-}
-
-async function abrirScanner(modo) {
-  modoScanner = modo;
-  document.getElementById('tituloScanner').innerText =
-    modo === 'local' ? '📍 Escaneie o LOCAL' : '📷 Escaneie o PRODUTO';
-  document.getElementById('statusScanner').innerText = 'Iniciando câmera…';
-  document.getElementById('modalScanner').classList.add('ativo');
-
-  try {
-    scannerInstance = new Html5Qrcode("leitor");
-    await scannerInstance.start(
-      { facingMode: "environment" },
-      { fps: 10, qrbox: { width: 280, height: 160 } },
-      (texto) => onScanSuccess(texto),
-      () => {}
-    );
-    document.getElementById('statusScanner').innerText =
-      modo === 'local'
-        ? 'Aponte para o código do local'
-        : `Aponte para o produto (local: ${localVinculoAtual || '⚠️ sem local'})`;
-  } catch (err) {
-    document.getElementById('statusScanner').innerText =
-      '❌ Erro ao abrir câmera: ' + err.message;
-  }
-}
-
-async function onScanSuccess(texto) {
-  if (navigator.vibrate) navigator.vibrate(80);
-
-  if (modoScanner === 'local') {
-    await definirLocalVinculo(texto);
-    await fecharScanner();
-    setTimeout(() => abrirScanner('produto'), 300);
-  } else {
-    await adicionarProdutoVinculo(texto);
-    document.getElementById('statusScanner').innerText =
-      `✓ Adicionado: ${texto}. Continue escaneando…`;
-  }
-}
-
-async function fecharScanner() {
-  if (scannerInstance) {
-    try { await scannerInstance.stop(); scannerInstance.clear(); } catch (e) {}
-    scannerInstance = null;
-  }
-  document.getElementById('modalScanner').classList.remove('ativo');
-  document.getElementById('leitor').innerHTML = '';
-}
-window.fecharScanner = fecharScanner;
-
-async function sincronizarVinculacao() {
-  const pendentes = vinculacaoFila.filter(r => r.status === 'pendente');
-  if (!pendentes.length) { alert('Nada para sincronizar.'); return; }
-
-  const semData = pendentes.filter(r => !r.validade);
-  if (semData.length && !confirm(`${semData.length} item(ns) sem data de validade. Enviar mesmo assim?`)) return;
-
-  if (!navigator.onLine) {
-    alert('Sem internet. Os dados ficam salvos no dispositivo e serão enviados depois.');
-    return;
-  }
-
-  const btn = document.getElementById('btnSincronizar');
-  const textoOriginal = btn.innerHTML;
-  btn.disabled = true;
-  btn.innerHTML = '☁️ Enviando…';
-
-  try {
-    const resp = await fetch(https://script.google.com/macros/s/AKfycbyOX3a0-_Tb4xOiScklwNMi_SSNTxdBuQSehD3-AqAkgbNPi8-MCblFSVbyBrbBk8yX/exec, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify({
-        token: teste000,
-        registros: pendentes.map(({ id, status, ...r }) => r)
-      })
+    const dbPromise = idb.openDB('gestao-setor', 1, {
+        upgrade(db) {
+            if (!db.objectStoreNames.contains('vinculacoes')) {
+                const s = db.createObjectStore('vinculacoes', { keyPath: 'id', autoIncrement: true });
+                s.createIndex('status', 'status');
+                s.createIndex('local', 'local');
+                s.createIndex('dataHora', 'dataHora');
+            }
+            if (!db.objectStoreNames.contains('config')) {
+                db.createObjectStore('config', { keyPath: 'chave' });
+            }
+        }
     });
-    const json = await resp.json();
-    if (json.ok) {
-      for (const p of pendentes) {
-        p.status = 'sincronizado';
-        await db.put(p);
-      }
-      renderizarVinculacao();
-      alert(`✓ ${json.inseridos || pendentes.length} registro(s) enviados.`);
-    } else {
-      alert('Falha no envio: ' + (json.erro || 'desconhecido'));
+
+    const db = {
+        async getAll()          { return (await dbPromise).getAll('vinculacoes'); },
+        async add(rec)          { return (await dbPromise).add('vinculacoes', rec); },
+        async put(rec)          { return (await dbPromise).put('vinculacoes', rec); },
+        async del(id)           { return (await dbPromise).delete('vinculacoes', id); },
+        async getConfig(k)      { const r = await (await dbPromise).get('config', k); return r ? r.valor : null; },
+        async setConfig(k, v)   { return (await dbPromise).put('config', { chave: k, valor: v }); }
+    };
+
+    let scannerInstance = null;
+    let modoScanner = null;
+    let vinculacaoFila = [];
+    let localVinculoAtual = '';
+
+    async function carregarVinculacao() {
+        vinculacaoFila = await db.getAll();
+        localVinculoAtual = (await db.getConfig('localAtual')) || '';
+        renderizarVinculacao();
     }
-  } catch (e) {
-    alert('Erro de rede. Fila mantida no dispositivo.\n' + e.message);
-  } finally {
-    btn.disabled = false;
-    btn.innerHTML = textoOriginal;
-  }
-}
 
-document.getElementById('btnLerLocal').addEventListener('click', () => abrirScanner('local'));
-document.getElementById('btnLerProduto').addEventListener('click', () => {
-  if (!localVinculoAtual) { alert('Defina um local primeiro (botão "Ler Local").'); return; }
-  abrirScanner('produto');
-});
-document.getElementById('btnTrocarLocal').addEventListener('click', async () => {
-  if (confirm('Trocar o local atual? Os itens já lidos ficam salvos.')) {
-    localVinculoAtual = '';
-    await db.setConfig('localAtual', '');
-    renderizarVinculacao();
-    abrirScanner('local');
-  }
-});
-document.getElementById('btnSincronizar').addEventListener('click', sincronizarVinculacao);
-document.getElementById('btnLimparTudo').addEventListener('click', async () => {
-  if (!confirm('Apagar da lista local os itens JÁ ENVIADOS? (Pendentes são mantidos.)')) return;
-  const sincronizados = vinculacaoFila.filter(r => r.status === 'sincronizado');
-  for (const r of sincronizados) await db.del(r.id);
-  vinculacaoFila = vinculacaoFila.filter(r => r.status !== 'sincronizado');
-  renderizarVinculacao();
-});
+    async function definirLocalVinculo(texto) {
+        localVinculoAtual = texto.trim();
+        await db.setConfig('localAtual', localVinculoAtual);
+        renderizarVinculacao();
+    }
 
-window.addEventListener('online', () => {
-  if (vinculacaoFila.some(r => r.status === 'pendente')) sincronizarVinculacao();
-});
+    function renderizarVinculacao() {
+        const div = document.getElementById('conteudoVinculacao');
+        const pendentes = vinculacaoFila.filter(r => r.status === 'pendente');
 
-carregarVinculacao();
+        document.getElementById('qtdFila').innerText = pendentes.length;
+        document.getElementById('statsVinculacao').innerText =
+            `${vinculacaoFila.length} itens no total · ${pendentes.length} pendentes`;
+        document.getElementById('localAtualTexto').innerText =
+            localVinculoAtual || '— não definido —';
 
-// Registro do Service Worker (PWA / offline)
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./sw.js')
-      .then(reg => console.log('✓ SW registrado:', reg.scope))
-      .catch(err => console.warn('SW falhou:', err));
-  });
-}
+        if (!vinculacaoFila.length) {
+            div.innerHTML = '<div class="vazio">Nenhum item. Clique em "Ler Produto" para começar.</div>';
+            return;
+        }
+
+        const ordenados = [...vinculacaoFila].sort(
+            (a, b) => new Date(b.dataHora) - new Date(a.dataHora)
+        );
+
+        let html = `<div class="tabela-wrapper"><table class="vinculo-tabela"><thead><tr>
+            <th>Local</th><th>Código</th><th>Produto</th><th>Validade</th>
+            <th>Status</th><th></th></tr></thead><tbody>`;
+
+        ordenados.forEach(r => {
+            const semLocal = !r.local;
+            const classes = [
+                r.status === 'sincronizado' ? 'sincronizado' : '',
+                semLocal ? 'sem-local' : ''
+            ].filter(Boolean).join(' ');
+
+            html += `<tr class="${classes}">
+                <td class="codigo">${r.local || '⚠️ —'}</td>
+                <td class="codigo">${r.codigo}</td>
+                <td>${r.produto || '<em>desconhecido</em>'}</td>
+                <td><input type="date" value="${r.validade || ''}"
+                           onchange="atualizarValidadeVinculo(${r.id}, this.value)"></td>
+                <td>${r.status === 'sincronizado'
+                       ? '<span class="vinculo-badge-ok">✓ Enviado</span>'
+                       : '<span class="vinculo-badge-pend">⏳ Pendente</span>'}</td>
+                <td><button class="btn-acao" style="padding:4px 10px;"
+                           onclick="removerVinculo(${r.id})">✕</button></td>
+            </tr>`;
+        });
+        html += '</tbody></table></div>';
+        div.innerHTML = html;
+    }
+
+    async function adicionarProdutoVinculo(codigo) {
+        const produto = buscarNomeProdutoVinculo(codigo);
+        const registro = {
+            local: localVinculoAtual,
+            codigo: codigo.trim(),
+            produto: produto || '',
+            validade: '',
+            dataHora: new Date().toISOString(),
+            status: 'pendente'
+        };
+        const id = await db.add(registro);
+        registro.id = id;
+        vinculacaoFila.push(registro);
+        renderizarVinculacao();
+        setTimeout(() => {
+            const inputs = document.querySelectorAll('.vinculo-tabela input[type="date"]');
+            if (inputs.length) inputs[0].focus();
+        }, 80);
+    }
+
+    async function atualizarValidadeVinculo(id, valor) {
+        const rec = vinculacaoFila.find(r => r.id === id);
+        if (!rec) return;
+        rec.validade = valor;
+        await db.put(rec);
+    }
+
+    async function removerVinculo(id) {
+        await db.del(id);
+        vinculacaoFila = vinculacaoFila.filter(r => r.id !== id);
+        renderizarVinculacao();
+    }
+    window.removerVinculo = removerVinculo;
+    window.atualizarValidadeVinculo = atualizarValidadeVinculo;
+
+    function buscarNomeProdutoVinculo(codigo) {
+        if (!dadosEstoque || !dadosEstoque.length) return '';
+        const cod = codigo.toString().replace(/^0+/, '');
+        const item = dadosEstoque.find(e => {
+            const c = (e.Codigo || '').toString().replace(/^0+/, '');
+            return c === cod || c === codigo.toString();
+        });
+        return item ? (item.Nome || '') : '';
+    }
+
+    async function abrirScanner(modo) {
+        modoScanner = modo;
+        document.getElementById('tituloScanner').innerText =
+            modo === 'local' ? '📍 Escaneie o LOCAL' : '📷 Escaneie o PRODUTO';
+        document.getElementById('statusScanner').innerText = 'Iniciando câmera…';
+        document.getElementById('modalScanner').classList.add('ativo');
+
+        try {
+            scannerInstance = new Html5Qrcode("leitor");
+            await scannerInstance.start(
+                { facingMode: "environment" },
+                { fps: 10, qrbox: { width: 280, height: 160 } },
+                (texto) => onScanSuccess(texto),
+                () => {}
+            );
+            document.getElementById('statusScanner').innerText =
+                modo === 'local'
+                    ? 'Aponte para o código do local'
+                    : `Aponte para o produto (local: ${localVinculoAtual || '⚠️ sem local'})`;
+        } catch (err) {
+            document.getElementById('statusScanner').innerText =
+                '❌ Erro ao abrir câmera: ' + err.message;
+        }
+    }
+
+    async function onScanSuccess(texto) {
+        if (navigator.vibrate) navigator.vibrate(80);
+
+        if (modoScanner === 'local') {
+            await definirLocalVinculo(texto);
+            await fecharScanner();
+            setTimeout(() => abrirScanner('produto'), 300);
+        } else {
+            await adicionarProdutoVinculo(texto);
+            document.getElementById('statusScanner').innerText =
+                `✓ Adicionado: ${texto}. Continue escaneando…`;
+        }
+    }
+
+    async function fecharScanner() {
+        if (scannerInstance) {
+            try { await scannerInstance.stop(); scannerInstance.clear(); } catch (e) {}
+            scannerInstance = null;
+        }
+        document.getElementById('modalScanner').classList.remove('ativo');
+        document.getElementById('leitor').innerHTML = '';
+    }
+    window.fecharScanner = fecharScanner;
+
+    async function sincronizarVinculacao() {
+        const pendentes = vinculacaoFila.filter(r => r.status === 'pendente');
+        if (!pendentes.length) { alert('Nada para sincronizar.'); return; }
+
+        const semData = pendentes.filter(r => !r.validade);
+        if (semData.length && !confirm(`${semData.length} item(ns) sem data de validade. Enviar mesmo assim?`)) return;
+
+        if (!navigator.onLine) {
+            alert('Sem internet. Os dados ficam salvos no dispositivo e serão enviados depois.');
+            return;
+        }
+
+        const btn = document.getElementById('btnSincronizar');
+        const textoOriginal = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '☁️ Enviando…';
+
+        try {
+            const resp = await fetch(APPS_SCRIPT_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                body: JSON.stringify({
+                    token: TOKEN_VINC,
+                    registros: pendentes.map(({ id, status, ...r }) => r)
+                })
+            });
+            const json = await resp.json();
+            if (json.ok) {
+                for (const p of pendentes) {
+                    p.status = 'sincronizado';
+                    await db.put(p);
+                }
+                renderizarVinculacao();
+                alert(`✓ ${json.inseridos || pendentes.length} registro(s) enviados.`);
+            } else {
+                alert('Falha no envio: ' + (json.erro || 'desconhecido'));
+            }
+        } catch (e) {
+            alert('Erro de rede. Fila mantida no dispositivo.\n' + e.message);
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = textoOriginal;
+        }
+    }
+
+    document.getElementById('btnLerLocal').addEventListener('click', () => abrirScanner('local'));
+    document.getElementById('btnLerProduto').addEventListener('click', () => {
+        if (!localVinculoAtual) { alert('Defina um local primeiro (botão "Ler Local").'); return; }
+        abrirScanner('produto');
+    });
+    document.getElementById('btnTrocarLocal').addEventListener('click', async () => {
+        if (confirm('Trocar o local atual? Os itens já lidos ficam salvos.')) {
+            localVinculoAtual = '';
+            await db.setConfig('localAtual', '');
+            renderizarVinculacao();
+            abrirScanner('local');
+        }
+    });
+    document.getElementById('btnSincronizar').addEventListener('click', sincronizarVinculacao);
+    document.getElementById('btnLimparTudo').addEventListener('click', async () => {
+        if (!confirm('Apagar da lista local os itens JÁ ENVIADOS? (Pendentes são mantidos.)')) return;
+        const sincronizados = vinculacaoFila.filter(r => r.status === 'sincronizado');
+        for (const r of sincronizados) await db.del(r.id);
+        vinculacaoFila = vinculacaoFila.filter(r => r.status !== 'sincronizado');
+        renderizarVinculacao();
+    });
+
+    window.addEventListener('online', () => {
+        if (vinculacaoFila.some(r => r.status === 'pendente')) sincronizarVinculacao();
+    });
+
+    carregarVinculacao();
+
+    // ==================== SERVICE WORKER (PWA / offline) ====================
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('./sw.js')
+                .then(reg => console.log('✓ SW registrado:', reg.scope))
+                .catch(err => console.warn('SW falhou:', err));
+        });
+    }
 </script>
 </body>
 </html>
