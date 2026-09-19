@@ -1745,19 +1745,39 @@
         }
     }
 
-    async function onScanSuccess(texto) {
-        if (navigator.vibrate) navigator.vibrate(80);
+    let ultimaLeitura = 0;
+let ultimoCodigo = '';
+const COOLDOWN_MS = 1800; // 1.8 segundos entre leituras
 
-        if (modoScanner === 'local') {
-            await definirLocalVinculo(texto);
-            await fecharScanner();
-            setTimeout(() => abrirScanner('produto'), 300);
-        } else {
-            await adicionarProdutoVinculo(texto);
+async function onScanSuccess(texto) {
+    const agora = Date.now();
+
+    // Bloqueia leituras repetidas do mesmo código dentro do cooldown
+    if (texto === ultimoCodigo && (agora - ultimaLeitura) < COOLDOWN_MS) return;
+
+    // Também bloqueia leituras MUITO rápidas mesmo de códigos diferentes
+    if ((agora - ultimaLeitura) < COOLDOWN_MS) return;
+
+    ultimaLeitura = agora;
+    ultimoCodigo = texto;
+
+    if (navigator.vibrate) navigator.vibrate(80);
+
+    if (modoScanner === 'local') {
+        await definirLocalVinculo(texto);
+        await fecharScanner();
+        setTimeout(() => abrirScanner('produto'), 300);
+    } else {
+        await adicionarProdutoVinculo(texto);
+        document.getElementById('statusScanner').innerText =
+            `✓ Adicionado: ${texto}. Aguarde…`;
+        // feedback visual de cooldown
+        setTimeout(() => {
             document.getElementById('statusScanner').innerText =
-                `✓ Adicionado: ${texto}. Continue escaneando…`;
-        }
+                `Aponte para o próximo produto (local: ${localVinculoAtual || '⚠️ sem local'})`;
+        }, COOLDOWN_MS);
     }
+}
 
     async function fecharScanner() {
         if (scannerInstance) {
