@@ -414,6 +414,42 @@
         .vinculo-badge-ok { color: #059669; font-weight: 600; }
         .vinculo-badge-pend { color: #d97706; font-weight: 600; }
 
+        /* ====== ENTRADA MANUAL ====== */
+        .vinculo-manual {
+            background: white;
+            border-radius: 16px;
+            padding: 16px;
+            margin-bottom: 16px;
+            border: 1px solid #e2e8f0;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+        }
+        .vinculo-manual-grupo {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        .vinculo-manual-grupo input {
+            flex: 1;
+            min-width: 200px;
+            padding: 10px 14px;
+            border: 1.5px solid #cbd5e1;
+            border-radius: 12px;
+            font-family: inherit;
+            font-size: 0.95rem;
+            transition: all 0.2s;
+        }
+        .vinculo-manual-grupo input:focus {
+            outline: none;
+            border-color: #2563eb;
+            box-shadow: 0 0 0 3px rgba(37,99,235,0.1);
+        }
+
+        /* ====== LOCAIS VINCULADOS NA ANÁLISE ====== */
+        .vinc-local { font-family: monospace; font-size: 0.88rem; }
+
         #leitor video { width: 100% !important; height: auto !important; }
     </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
@@ -526,6 +562,17 @@
             <button id="btnTrocarLocal" class="btn-acao">🔄 Trocar Local</button>
         </div>
 
+        <div class="vinculo-manual">
+            <div class="vinculo-manual-grupo">
+                <input type="text" id="inputLocalManual" placeholder="Digite ou cole o código do LOCAL e pressione Enter">
+                <button id="btnLocalManual" class="btn-acao">✓ Definir local</button>
+            </div>
+            <div class="vinculo-manual-grupo">
+                <input type="text" id="inputProdutoManual" placeholder="Digite SKU ou COD do produto e pressione Enter">
+                <button id="btnProdutoManual" class="btn-acao">✓ Adicionar produto</button>
+            </div>
+        </div>
+
         <div class="filtros">
             <div class="filtros-botoes" style="border-top:none;">
                 <button id="btnLerLocal" class="btn-acao">📍 Ler Local</button>
@@ -576,15 +623,20 @@
     const SHEET_ESTOQUE = 'EstoqueVirtual';
     const SHEET_ATUALIZADA = 'Atualizada';
     const SHEET_VALIDADE = 'Validade';
+    const SHEET_REFERENCIA = 'REFERENCIA';
 
     const URL_CODBALANCA = `https://opensheet.elk.sh/${SHEET_ID}/${SHEET_CODBALANCA}`;
     const URL_ESTOQUE = `https://opensheet.elk.sh/${SHEET_ID}/${SHEET_ESTOQUE}`;
     const URL_ATUALIZADA = `https://opensheet.elk.sh/${SHEET_ID}/${SHEET_ATUALIZADA}`;
     const URL_VALIDADE = `https://opensheet.elk.sh/${SHEET_ID}/${SHEET_VALIDADE}`;
+    const URL_REFERENCIA = `https://opensheet.elk.sh/${SHEET_ID}/${SHEET_REFERENCIA}`;
 
     let dadosCodBalanca = [];
     let dadosEstoque = [];
     let dadosValidade = [];
+    let dadosReferencia = [];
+    let mapaReferenciaSKU = new Map();
+    let mapaReferenciaCOD = new Map();
     let ultimaAtualizacao = new Date();
 
     let mapasGlobal = {
@@ -710,6 +762,37 @@
             }
         } catch (e) {}
         topoDataDiv.innerHTML = `📅 Última atualização: ${ultimaAtualizacao.toLocaleDateString('pt-BR')}`;
+    }
+
+    async function carregarReferencia() {
+        try {
+            const resp = await fetch(URL_REFERENCIA);
+            if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+            const data = await resp.json();
+
+            dadosReferencia = data.map(item => ({
+                SKU:     (item['SKU']     || '').toString().trim(),
+                COD:     (item['COD']     || '').toString().trim(),
+                PRODUTO: (item['PRODUTO'] || item['Produto'] || '').toString().trim()
+            })).filter(r => r.SKU || r.COD);
+
+            mapaReferenciaSKU.clear();
+            mapaReferenciaCOD.clear();
+            dadosReferencia.forEach(r => {
+                if (r.SKU) {
+                    mapaReferenciaSKU.set(r.SKU, r);
+                    mapaReferenciaSKU.set(r.SKU.replace(/^0+/, ''), r);
+                }
+                if (r.COD) {
+                    mapaReferenciaCOD.set(r.COD, r);
+                    mapaReferenciaCOD.set(r.COD.replace(/^0+/, ''), r);
+                }
+            });
+
+            console.log(`✓ REFERENCIA: ${dadosReferencia.length} itens`);
+        } catch (err) {
+            console.warn('REFERENCIA indisponível:', err.message);
+        }
     }
 
     async function carregarCodBalanca() {
@@ -952,6 +1035,8 @@
         { campo: 'estoque', label: 'Estoque', padrao: true },
         { campo: 'diasSemVenda', label: 'Dias sem venda', padrao: true },
         { campo: 'ultimaCompra', label: 'Última Compra', padrao: true },
+        { campo: 'locaisVinculados', label: 'Locais vinculados', padrao: true },
+        { campo: 'diasProximoVinculo', label: 'Dias p/ venc.', padrao: false },
         { campo: 'sugestao', label: 'Sugestão', padrao: true },
         { campo: 'motivo', label: 'Detalhe', padrao: false }
     ];
@@ -1036,6 +1121,16 @@
             if (termo) match = match && (cod.includes(termo) || (est['Nome'] || '').toLowerCase().includes(termo));
             if (termoForn) match = match && fornecedor.toLowerCase().includes(termoForn);
             if (match) {
+                // Locais vinculados a este produto (por COD)
+                const vinculos = obterVinculacoesDoProduto(cod);
+                const locaisVinculadosHTML = vinculos.length
+                    ? vinculos.map(formatarLocalVinculo).join('<br>')
+                    : '<span style="color:#94a3b8;">—</span>';
+                const diasProximoVinculo = vinculos
+                    .map(v => v.diasRestantes)
+                    .filter(d => d !== null && d !== undefined)
+                    .sort((a, b) => a - b)[0];
+
                 analise.push({
                     codigo: cod,
                     nome: est['Nome'] || '',
@@ -1043,6 +1138,8 @@
                     estoque: estoque,
                     diasSemVenda: diasSemVenda,
                     ultimaCompra: ultimaCompraStr,
+                    locaisVinculados: locaisVinculadosHTML,
+                    diasProximoVinculo: diasProximoVinculo !== undefined ? diasProximoVinculo : 999999,
                     sugestao: sugestao,
                     motivo: motivo
                 });
@@ -1093,7 +1190,12 @@
                 for (const col of todasColunasAnalise) {
                     if (colunasVisiveis.includes(col.campo)) {
                         let valor = a[col.campo];
-                        if (col.campo === 'estoque' || col.campo === 'diasSemVenda') {
+                        const numerico = ['estoque', 'diasSemVenda', 'diasProximoVinculo'].includes(col.campo);
+                        const semDado = col.campo === 'diasProximoVinculo' && valor === 999999;
+
+                        if (numerico && semDado) {
+                            html += `<td class="qtde" style="color:#94a3b8;">—</td>`;
+                        } else if (numerico) {
                             html += `<td class="qtde">${valor}</td>`;
                         } else {
                             html += `<td>${valor}</td>`;
@@ -1113,6 +1215,7 @@
                 for (const col of todasColunasAnalise) {
                     if (colunasVisiveis.includes(col.campo)) {
                         let valor = a[col.campo];
+                        if (col.campo === 'diasProximoVinculo' && valor === 999999) valor = '—';
                         html += `<div class="card-linha"><span class="label">${col.label}:</span><span class="valor">${valor}</span></div>`;
                     }
                 }
@@ -1562,6 +1665,11 @@
         abaBtns.forEach(btn => {
             btn.classList.toggle('ativo', btn.dataset.aba === abaId);
         });
+        // Ao entrar em Análise, re-renderiza para refletir vinculações novas
+        if (abaId === 'analise') {
+            reconstruirMapaVinculacoes();
+            aplicarFiltroAnalise();
+        }
     }
 
     abaBtns.forEach(btn => btn.addEventListener('click', () => trocarAba(btn.dataset.aba)));
@@ -1572,17 +1680,6 @@
     }
 
     carregarPreferenciasAnalise();
-
-    // Carregar todos os dados
-    Promise.all([
-        carregarAtualizada(),
-        carregarCodBalanca(),
-        carregarEstoque(),
-        carregarAnalise(),
-        carregarValidade()
-    ]).then(() => {
-        console.log('Carregamento concluído');
-    });
 
     // ==================== ABA VÍNCULO LOCAL (IndexedDB) ====================
     const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyOX3a0-_Tb4xOiScklwNMi_SSNTxdBuQSehD3-AqAkgbNPi8-MCblFSVbyBrbBk8yX/exec';
@@ -1616,6 +1713,116 @@
     let vinculacaoFila = [];
     let localVinculoAtual = '';
 
+    // Cooldown do scanner
+    let ultimaLeitura = 0;
+    let ultimoCodigo = '';
+    const COOLDOWN_MS = 1800;
+
+    // ==================== REFERENCIA (nome do produto) ====================
+    function buscarReferencia(codigo) {
+        if (!codigo) return null;
+        const raw = codigo.toString().trim();
+        const semZero = raw.replace(/^0+/, '');
+        return mapaReferenciaSKU.get(raw)
+            || mapaReferenciaSKU.get(semZero)
+            || mapaReferenciaCOD.get(raw)
+            || mapaReferenciaCOD.get(semZero)
+            || null;
+    }
+
+    function enriquecerCodigo(codigo) {
+        const ref = buscarReferencia(codigo);
+        if (ref) {
+            return {
+                produto: ref.PRODUTO || '',
+                codigoInterno: ref.COD || '',
+                sku: ref.SKU || ''
+            };
+        }
+        // fallback: EstoqueVirtual
+        if (dadosEstoque && dadosEstoque.length) {
+            const cod = codigo.toString().replace(/^0+/, '');
+            const item = dadosEstoque.find(e => {
+                const c = (e.Codigo || '').toString().replace(/^0+/, '');
+                return c === cod || c === codigo.toString();
+            });
+            if (item) return { produto: item.Nome || '', codigoInterno: item.Codigo || '', sku: '' };
+        }
+        return { produto: '', codigoInterno: '', sku: '' };
+    }
+
+    // ==================== MAPA DE VINCULAÇÕES (para Análise) ====================
+    let mapaVinculacoesPorCodigo = new Map();
+
+    function reconstruirMapaVinculacoes() {
+        mapaVinculacoesPorCodigo.clear();
+        const hoje = new Date();
+        hoje.setHours(0,0,0,0);
+
+        vinculacaoFila.forEach(v => {
+            const chaves = [];
+            if (v.codigoInterno) chaves.push(v.codigoInterno.toString());
+            if (v.codigo) {
+                const c = v.codigo.toString();
+                if (!chaves.includes(c)) chaves.push(c);
+            }
+            if (!chaves.length) return;
+
+            const diasRestantes = v.validade
+                ? Math.ceil((new Date(v.validade + 'T00:00:00') - hoje) / (1000*60*60*24))
+                : null;
+
+            const item = {
+                local: v.local || '—',
+                validade: v.validade || '',
+                diasRestantes,
+                status: v.status
+            };
+
+            chaves.forEach(k => {
+                const semZero = k.replace(/^0+/, '');
+                [k, semZero].forEach(kk => {
+                    if (!kk) return;
+                    if (!mapaVinculacoesPorCodigo.has(kk)) mapaVinculacoesPorCodigo.set(kk, []);
+                    mapaVinculacoesPorCodigo.get(kk).push(item);
+                });
+            });
+        });
+
+        for (const arr of mapaVinculacoesPorCodigo.values()) {
+            arr.sort((a, b) => {
+                if (!a.validade && !b.validade) return 0;
+                if (!a.validade) return 1;
+                if (!b.validade) return -1;
+                return a.validade.localeCompare(b.validade);
+            });
+        }
+    }
+
+    function obterVinculacoesDoProduto(codigo) {
+        if (!codigo) return [];
+        const raw = codigo.toString();
+        const semZero = raw.replace(/^0+/, '');
+        return mapaVinculacoesPorCodigo.get(raw)
+            || mapaVinculacoesPorCodigo.get(semZero)
+            || [];
+    }
+
+    function formatarLocalVinculo(v) {
+        const local = v.local || '—';
+        if (!v.validade) return `<span class="vinc-local">${local}</span> <small>(sem validade)</small>`;
+        const d = v.diasRestantes;
+        let cor = '#10b981';
+        if (d < 0)        cor = '#6b7280';
+        else if (d <= 7)  cor = '#ef4444';
+        else if (d <= 30) cor = '#f97316';
+        else if (d <= 90) cor = '#eab308';
+        const dataBR = v.validade.split('-').reverse().join('/');
+        const label = d < 0 ? 'VENCIDO' : `${d}d`;
+        return `<span style="color:${cor}; font-weight:600;">${local}</span> <small>(${dataBR} · ${label})</small>`;
+    }
+
+    // ==================== FLUXO DE VINCULAÇÃO ====================
     async function carregarVinculacao() {
         vinculacaoFila = await db.getAll();
         localVinculoAtual = (await db.getConfig('localAtual')) || '';
@@ -1629,23 +1836,24 @@
     }
 
     function renderizarVinculacao() {
-    const div = document.getElementById('conteudoVinculacao');
-    const pendentes = vinculacaoFila.filter(r => r.status === 'pendente');
+        const div = document.getElementById('conteudoVinculacao');
+        const pendentes = vinculacaoFila.filter(r => r.status === 'pendente');
 
-    const qtdFilaEl = document.getElementById('qtdFila');
-    if (qtdFilaEl) qtdFilaEl.innerText = pendentes.length;
+        const qtdFilaEl = document.getElementById('qtdFila');
+        if (qtdFilaEl) qtdFilaEl.innerText = pendentes.length;
 
-    const statsEl = document.getElementById('statsVinculacao');
-    if (statsEl) statsEl.innerText =
-        `${vinculacaoFila.length} itens no total · ${pendentes.length} pendentes`;
+        const statsEl = document.getElementById('statsVinculacao');
+        if (statsEl) statsEl.innerText =
+            `${vinculacaoFila.length} itens no total · ${pendentes.length} pendentes`;
 
-    const localEl = document.getElementById('localAtualTexto');
-    if (localEl) localEl.innerText = localVinculoAtual || '— não definido —';
+        const localEl = document.getElementById('localAtualTexto');
+        if (localEl) localEl.innerText = localVinculoAtual || '— não definido —';
 
-    if (!vinculacaoFila.length) {
-        div.innerHTML = '<div class="vazio">Nenhum item. Clique em "Ler Produto" para começar.</div>';
-        return;
-    }
+        if (!vinculacaoFila.length) {
+            div.innerHTML = '<div class="vazio">Nenhum item. Clique em "Ler Produto" para começar.</div>';
+            reconstruirMapaVinculacoes();
+            return;
+        }
 
         const ordenados = [...vinculacaoFila].sort(
             (a, b) => new Date(b.dataHora) - new Date(a.dataHora)
@@ -1662,10 +1870,14 @@
                 semLocal ? 'sem-local' : ''
             ].filter(Boolean).join(' ');
 
+            const produtoLabel = r.produto
+                ? r.produto
+                : '<em>desconhecido</em>';
+
             html += `<tr class="${classes}">
                 <td class="codigo">${r.local || '⚠️ —'}</td>
                 <td class="codigo">${r.codigo}</td>
-                <td>${r.produto || '<em>desconhecido</em>'}</td>
+                <td>${produtoLabel}</td>
                 <td><input type="date" value="${r.validade || ''}"
                            onchange="atualizarValidadeVinculo(${r.id}, this.value)"></td>
                 <td>${r.status === 'sincronizado'
@@ -1677,14 +1889,18 @@
         });
         html += '</tbody></table></div>';
         div.innerHTML = html;
+
+        reconstruirMapaVinculacoes();
     }
 
     async function adicionarProdutoVinculo(codigo) {
-        const produto = buscarNomeProdutoVinculo(codigo);
+        const info = enriquecerCodigo(codigo);
         const registro = {
             local: localVinculoAtual,
             codigo: codigo.trim(),
-            produto: produto || '',
+            codigoInterno: info.codigoInterno || '',
+            sku: info.sku || '',
+            produto: info.produto || '',
             validade: '',
             dataHora: new Date().toISOString(),
             status: 'pendente'
@@ -1704,6 +1920,7 @@
         if (!rec) return;
         rec.validade = valor;
         await db.put(rec);
+        reconstruirMapaVinculacoes();
     }
 
     async function removerVinculo(id) {
@@ -1714,16 +1931,7 @@
     window.removerVinculo = removerVinculo;
     window.atualizarValidadeVinculo = atualizarValidadeVinculo;
 
-    function buscarNomeProdutoVinculo(codigo) {
-        if (!dadosEstoque || !dadosEstoque.length) return '';
-        const cod = codigo.toString().replace(/^0+/, '');
-        const item = dadosEstoque.find(e => {
-            const c = (e.Codigo || '').toString().replace(/^0+/, '');
-            return c === cod || c === codigo.toString();
-        });
-        return item ? (item.Nome || '') : '';
-    }
-
+    // ==================== SCANNER ====================
     async function abrirScanner(modo) {
         modoScanner = modo;
         document.getElementById('tituloScanner').innerText =
@@ -1749,39 +1957,33 @@
         }
     }
 
-    let ultimaLeitura = 0;
-let ultimoCodigo = '';
-const COOLDOWN_MS = 1800; // 1.8 segundos entre leituras
+    async function onScanSuccess(texto) {
+        const agora = Date.now();
 
-async function onScanSuccess(texto) {
-    const agora = Date.now();
+        // Cooldown: bloqueia leituras repetidas/rápidas
+        if (texto === ultimoCodigo && (agora - ultimaLeitura) < COOLDOWN_MS) return;
+        if ((agora - ultimaLeitura) < COOLDOWN_MS) return;
 
-    // Bloqueia leituras repetidas do mesmo código dentro do cooldown
-    if (texto === ultimoCodigo && (agora - ultimaLeitura) < COOLDOWN_MS) return;
+        ultimaLeitura = agora;
+        ultimoCodigo = texto;
 
-    // Também bloqueia leituras MUITO rápidas mesmo de códigos diferentes
-    if ((agora - ultimaLeitura) < COOLDOWN_MS) return;
+        if (navigator.vibrate) navigator.vibrate(80);
 
-    ultimaLeitura = agora;
-    ultimoCodigo = texto;
-
-    if (navigator.vibrate) navigator.vibrate(80);
-
-    if (modoScanner === 'local') {
-        await definirLocalVinculo(texto);
-        await fecharScanner();
-        setTimeout(() => abrirScanner('produto'), 300);
-    } else {
-        await adicionarProdutoVinculo(texto);
-        document.getElementById('statusScanner').innerText =
-            `✓ Adicionado: ${texto}. Aguarde…`;
-        // feedback visual de cooldown
-        setTimeout(() => {
+        if (modoScanner === 'local') {
+            await definirLocalVinculo(texto);
+            await fecharScanner();
+            setTimeout(() => abrirScanner('produto'), 300);
+        } else {
+            await adicionarProdutoVinculo(texto);
             document.getElementById('statusScanner').innerText =
-                `Aponte para o próximo produto (local: ${localVinculoAtual || '⚠️ sem local'})`;
-        }, COOLDOWN_MS);
+                `✓ Adicionado: ${texto}. Aguarde…`;
+            setTimeout(() => {
+                const el = document.getElementById('statusScanner');
+                if (el) el.innerText =
+                    `Aponte para o próximo produto (local: ${localVinculoAtual || '⚠️ sem local'})`;
+            }, COOLDOWN_MS);
+        }
     }
-}
 
     async function fecharScanner() {
         if (scannerInstance) {
@@ -1793,6 +1995,7 @@ async function onScanSuccess(texto) {
     }
     window.fecharScanner = fecharScanner;
 
+    // ==================== SINCRONIZAÇÃO ====================
     async function sincronizarVinculacao() {
         const pendentes = vinculacaoFila.filter(r => r.status === 'pendente');
         if (!pendentes.length) { alert('Nada para sincronizar.'); return; }
@@ -1806,9 +2009,9 @@ async function onScanSuccess(texto) {
         }
 
         const btn = document.getElementById('btnSincronizar');
-        const textoOriginal = btn.innerHTML;
         btn.disabled = true;
-        btn.innerHTML = '☁️ Enviando…';
+        btn.style.opacity = '0.6';
+        // NÃO alteramos innerHTML — o <span id="qtdFila"> precisa continuar vivo
 
         try {
             const resp = await fetch(APPS_SCRIPT_URL, {
@@ -1831,13 +2034,14 @@ async function onScanSuccess(texto) {
                 alert('Falha no envio: ' + (json.erro || 'desconhecido'));
             }
         } catch (e) {
-            alert('Erro de rede. Fila mantida no dispositivo.\n' + e.message);
+            alert('Erro: ' + e.message);
         } finally {
             btn.disabled = false;
-            btn.innerHTML = textoOriginal;
+            btn.style.opacity = '1';
         }
     }
 
+    // ==================== EVENTOS ====================
     document.getElementById('btnLerLocal').addEventListener('click', () => abrirScanner('local'));
     document.getElementById('btnLerProduto').addEventListener('click', () => {
         if (!localVinculoAtual) { alert('Defina um local primeiro (botão "Ler Local").'); return; }
@@ -1860,11 +2064,46 @@ async function onScanSuccess(texto) {
         renderizarVinculacao();
     });
 
+    // Entrada manual — Local
+    document.getElementById('btnLocalManual').addEventListener('click', async () => {
+        const valor = document.getElementById('inputLocalManual').value.trim();
+        if (!valor) { alert('Digite um código de local.'); return; }
+        await definirLocalVinculo(valor);
+        document.getElementById('inputLocalManual').value = '';
+    });
+    document.getElementById('inputLocalManual').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') document.getElementById('btnLocalManual').click();
+    });
+
+    // Entrada manual — Produto
+    document.getElementById('btnProdutoManual').addEventListener('click', async () => {
+        if (!localVinculoAtual) { alert('Defina um local primeiro.'); return; }
+        const valor = document.getElementById('inputProdutoManual').value.trim();
+        if (!valor) { alert('Digite SKU ou COD do produto.'); return; }
+        await adicionarProdutoVinculo(valor);
+        document.getElementById('inputProdutoManual').value = '';
+        document.getElementById('inputProdutoManual').focus();
+    });
+    document.getElementById('inputProdutoManual').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') document.getElementById('btnProdutoManual').click();
+    });
+
     window.addEventListener('online', () => {
         if (vinculacaoFila.some(r => r.status === 'pendente')) sincronizarVinculacao();
     });
 
-    carregarVinculacao();
+    // ==================== INICIALIZAÇÃO ====================
+    Promise.all([
+        carregarAtualizada(),
+        carregarReferencia(),
+        carregarCodBalanca(),
+        carregarEstoque(),
+        carregarAnalise(),
+        carregarValidade()
+    ]).then(() => {
+        console.log('Carregamento concluído');
+        carregarVinculacao();   // roda depois de REFERENCIA estar pronta
+    });
 
     // ==================== SERVICE WORKER (PWA / offline) ====================
     if ('serviceWorker' in navigator) {
