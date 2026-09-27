@@ -447,8 +447,12 @@
             box-shadow: 0 0 0 3px rgba(37,99,235,0.1);
         }
 
-        /* ====== LOCAIS VINCULADOS NA ANÁLISE ====== */
+        /* ====== LOCAIS VINCULADOS E PRIORIDADE ====== */
         .vinc-local { font-family: monospace; font-size: 0.88rem; }
+        tr.prioridade-vencido { background: #fee2e2 !important; }
+        tr.prioridade-critico { background: #ffedd5 !important; }
+        .card-item.prioridade-vencido { border-left-color: #ef4444; background: #fef2f2; }
+        .card-item.prioridade-critico { border-left-color: #f97316; background: #fff7ed; }
 
         #leitor video { width: 100% !important; height: auto !important; }
     </style>
@@ -529,25 +533,27 @@
         <div id="paginacaoAnalise" class="paginacao" style="display: none;"></div>
     </div>
 
-    <!-- ABA VALIDADE -->
+    <!-- ABA VALIDADE (lista de prioridade - lê da sheet Vinculacao) -->
     <div id="aba-validade" class="conteudo-aba">
         <div class="filtros">
             <div class="filtros-top">
                 <div><label>🔍 Buscar por Código ou Produto</label><input type="text" id="buscaValidade" placeholder="Ex: 1103789, IOG"></div>
                 <div><label>🏢 Fornecedor</label><input type="text" id="buscaValidadeFornecedor" placeholder="Ex: SEARA"></div>
+                <div><label>📍 Local</label><input type="text" id="buscaValidadeLocal" placeholder="Ex: A5, C2"></div>
                 <div class="stats" id="statsValidade">0 itens</div>
             </div>
             <div class="filtros-botoes">
                 <button id="btnVisaoValidade" class="btn-acao">🃏 Ver como Cards</button>
-                <button id="btnModoValidade" class="btn-acao">🗂️ Modo: Agrupado</button>
-                <button class="btn-acao filtro-status" data-status="todos">Todos</button>
-                <button class="btn-acao filtro-status" data-status="vencidos">Vencidos</button>
-                <button class="btn-acao filtro-status" data-status="criticos">Críticos (≤7d)</button>
-                <button class="btn-acao filtro-status" data-status="atencao">Atenção (≤30d)</button>
-                <button class="btn-acao filtro-status" data-status="proximos">Próximos (≤90d)</button>
+                <button class="btn-acao filtro-status-val" data-status="todos">Todos</button>
+                <button class="btn-acao filtro-status-val" data-status="vencidos">Vencidos</button>
+                <button class="btn-acao filtro-status-val" data-status="criticos">Críticos (≤7d)</button>
+                <button class="btn-acao filtro-status-val" data-status="atencao">Atenção (≤30d)</button>
+                <button class="btn-acao filtro-status-val" data-status="proximos">Próximos (≤90d)</button>
+                <button class="btn-acao filtro-status-val" data-status="ok">OK (&gt;90d)</button>
+                <button id="btnAtualizarValidade" class="btn-acao">🔄 Atualizar da vinculação</button>
             </div>
         </div>
-        <div id="statusValidade" class="carregando">Carregando dados...</div>
+        <div id="statusValidade" class="vazio" style="display:none;"></div>
         <div id="conteudoValidade"></div>
         <div id="paginacaoValidade" class="paginacao" style="display: none;"></div>
     </div>
@@ -622,34 +628,28 @@
     const SHEET_CODBALANCA = 'CodBalanca';
     const SHEET_ESTOQUE = 'EstoqueVirtual';
     const SHEET_ATUALIZADA = 'Atualizada';
-    const SHEET_VALIDADE = 'Validade';
     const SHEET_REFERENCIA = 'REFERENCIA';
+    const SHEET_VINCULACAO = 'Vinculacao';
 
     const URL_CODBALANCA = `https://opensheet.elk.sh/${SHEET_ID}/${SHEET_CODBALANCA}`;
-    const URL_ESTOQUE = `https://opensheet.elk.sh/${SHEET_ID}/${SHEET_ESTOQUE}`;
+    const URL_ESTOQUE    = `https://opensheet.elk.sh/${SHEET_ID}/${SHEET_ESTOQUE}`;
     const URL_ATUALIZADA = `https://opensheet.elk.sh/${SHEET_ID}/${SHEET_ATUALIZADA}`;
-    const URL_VALIDADE = `https://opensheet.elk.sh/${SHEET_ID}/${SHEET_VALIDADE}`;
     const URL_REFERENCIA = `https://opensheet.elk.sh/${SHEET_ID}/${SHEET_REFERENCIA}`;
+    const URL_VINCULACAO = `https://opensheet.elk.sh/${SHEET_ID}/${SHEET_VINCULACAO}`;
 
     let dadosCodBalanca = [];
     let dadosEstoque = [];
-    let dadosValidade = [];
     let dadosReferencia = [];
+    let dadosVinculacaoSheet = [];
     let mapaReferenciaSKU = new Map();
     let mapaReferenciaCOD = new Map();
     let ultimaAtualizacao = new Date();
-
-    let mapasGlobal = {
-        fornecedor: new Map(),
-        estoque: new Map(),
-        diasSemVenda: new Map()
-    };
 
     let ordenacao = {
         codbalanca: { coluna: 'Balanca', direcao: 'asc' },
         estoque: { coluna: null, direcao: 'asc' },
         analise: { coluna: null, direcao: 'asc' },
-        validade: { coluna: 'validadeProxima', direcao: 'asc' }
+        validade: { coluna: 'diasRestantes', direcao: 'asc' }
     };
 
     let visao = {
@@ -658,8 +658,6 @@
         analise: 'tabela',
         validade: 'tabela'
     };
-
-    let modoAgrupadoValidade = true;
 
     const ITENS_POR_PAGINA = 100;
     let paginacao = {
@@ -725,20 +723,6 @@
                 valA = valA.toString().toLowerCase();
                 valB = valB.toString().toLowerCase();
                 return direcao === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
-            }
-        });
-    }
-
-    function atualizarMapasEstoque() {
-        mapasGlobal.fornecedor.clear();
-        mapasGlobal.estoque.clear();
-        mapasGlobal.diasSemVenda.clear();
-        dadosEstoque.forEach(item => {
-            const cod = item['Codigo']?.toString();
-            if (cod) {
-                mapasGlobal.fornecedor.set(cod, item['Fornecedor'] || '');
-                mapasGlobal.estoque.set(cod, normalizarNumero(item['Estoque']));
-                mapasGlobal.diasSemVenda.set(cod, parseInt(item['Dias sem venda']) || 0);
             }
         });
     }
@@ -818,7 +802,6 @@
                 'Dias sem venda': normalizarNumero(item['Dias sem venda']),
                 'Codigo': item['Codigo']?.toString() || ''
             }));
-            atualizarMapasEstoque();
             aplicarFiltroEstoque();
             atualizarDashboard();
             document.getElementById('statusEstoque').style.display = 'none';
@@ -827,41 +810,44 @@
         }
     }
 
-    async function carregarValidade() {
-        try {
-            const resp = await fetch(URL_VALIDADE);
-            if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-            const data = await resp.json();
-            const hoje = new Date();
-            hoje.setHours(0,0,0,0);
-            dadosValidade = data.map(item => {
-                const dataValidade = parseDataBrasil(item['Data de validade']);
-                const diasRestantes = dataValidade ? Math.ceil((dataValidade - hoje) / (1000*60*60*24)) : null;
-                return {
-                    codigo: item['Código']?.toString() || '',
-                    produto: item['Produto'] || '',
-                    fornecedor: item['Fornecedor'] || '',
-                    locais: item['Locais'] || '',
-                    estoqueAtual: item['Estoque atual'] || '',
-                    estoqueAtualNum: normalizarNumero(item['Estoque atual']),
-                    dataValidade: dataValidade,
-                    dataValidadeStr: item['Data de validade'] || '',
-                    diasRestantes: diasRestantes,
-                    ultimaCompra: item['Última compra'] || '',
-                    qtdeUltimaCompra: item['Qtde. última compra'] || ''
-                };
-            }).filter(item => item.dataValidade !== null);
-            aplicarFiltroValidade();
-            document.getElementById('statusValidade').style.display = 'none';
-        } catch (err) {
-            document.getElementById('statusValidade').innerHTML = `<div class="erro">❌ Erro: ${err.message}</div>`;
-        }
-    }
-
     async function carregarAnalise() {
         if (dadosEstoque.length === 0) await carregarEstoque();
         document.getElementById('statusAnalise').style.display = 'none';
         aplicarFiltroAnalise();
+    }
+
+    // ==================== NORMALIZAÇÃO DE CÓDIGOS (REFERENCIA como ponte) ====================
+    // Dado QUALQUER código (EAN, SKU, COD interno), retorna o COD interno.
+    function obterCodigoInterno(codigo) {
+        if (!codigo) return null;
+        const raw = codigo.toString().trim();
+        const semZero = raw.replace(/^0+/, '');
+
+        let ref = mapaReferenciaSKU.get(raw) || mapaReferenciaSKU.get(semZero);
+        if (!ref) ref = mapaReferenciaCOD.get(raw) || mapaReferenciaCOD.get(semZero);
+
+        if (ref && ref.COD) return ref.COD.toString().replace(/^0+/, '');
+        return semZero;
+    }
+
+    function obterNomeProduto(codigo) {
+        if (!codigo) return '';
+        const raw = codigo.toString().trim();
+        const semZero = raw.replace(/^0+/, '');
+        const ref = mapaReferenciaSKU.get(raw)
+            || mapaReferenciaSKU.get(semZero)
+            || mapaReferenciaCOD.get(raw)
+            || mapaReferenciaCOD.get(semZero);
+        return ref ? (ref.PRODUTO || '') : '';
+    }
+
+    // Chave do mapa de vinculações — sempre o COD interno
+    function chaveVinculo(v) {
+        if (v.CodigoInterno) return v.CodigoInterno.toString().replace(/^0+/, '');
+        if (v.codigoInterno) return v.codigoInterno.toString().replace(/^0+/, '');
+        const bruto = v.Codigo || v.codigo || '';
+        const interno = obterCodigoInterno(bruto);
+        return interno ? interno.toString().replace(/^0+/, '') : null;
     }
 
     // ==================== ABA CÓDIGO X BALANÇA ====================
@@ -960,8 +946,13 @@
     function renderizarEstoque() {
         const { dadosFiltrados, paginaAtual, totalPaginas } = paginacao.estoque;
         const inicio = (paginaAtual - 1) * ITENS_POR_PAGINA;
-        const ordenados = ordenarDados(dadosFiltrados.slice(inicio, inicio+ITENS_POR_PAGINA), ordenacao.estoque.coluna, ordenacao.estoque.direcao);
+        const ordenados = ordenarDados(
+            dadosFiltrados.slice(inicio, inicio + ITENS_POR_PAGINA),
+            ordenacao.estoque.coluna,
+            ordenacao.estoque.direcao
+        );
         const conteudoDiv = document.getElementById('conteudoEstoque');
+
         if (!ordenados.length) {
             conteudoDiv.innerHTML = '<div class="vazio">Nenhum item.</div>';
             document.getElementById('paginacaoEstoque').style.display = 'none';
@@ -972,9 +963,10 @@
 
         if (visao.estoque === 'tabela') {
             let html = `<div class="tabela-wrapper"><table id="tabela-estoque"><thead>`;
-            const colunas = ['Codigo', 'Nome', 'Estoque', 'Dias sem venda', 'Última venda', 'Última Compra', 'Fornecedor', 'QR'];
+            const colunas = ['Codigo', 'Nome', 'Estoque', 'Dias sem venda', 'Última venda', 'Última Compra', 'Fornecedor', 'Locais vinculados', 'QR'];
             colunas.forEach(col => {
-                html += `<th>${col} <span class="ordenar-btn" data-coluna="${col === 'QR' ? '' : col}">${col !== 'QR' ? '⇅' : ''}</span></th>`;
+                const semOrdenacao = col === 'QR' || col === 'Locais vinculados';
+                html += `<th>${col} <span class="ordenar-btn" data-coluna="${semOrdenacao ? '' : col}">${semOrdenacao ? '' : '⇅'}</span></th>`;
             });
             html += `</thead><tbody>`;
             for (const i of ordenados) {
@@ -983,16 +975,23 @@
                 if (estoque === 0) classe = 'negativo';
                 else if (estoque < limite) classe = 'estoque-baixo';
                 const qrValor = (i['Codigo'] || '') + '0001';
+
+                const vinculos = obterVinculacoesDoProduto(i['Codigo']);
+                const locaisHTML = vinculos.length
+                    ? vinculos.map(formatarLocalVinculo).join('<br>')
+                    : '<span style="color:#94a3b8;">—</span>';
+
                 html += `<tr class="${classe}">
-                              <td class="codigo">${i['Codigo'] || ''}</td>
-                              <td>${i['Nome'] || ''}</td>
-                              <td class="qtde">${estoque}</td>
-                              <td class="qtde">${i['Dias sem venda'] || ''}</td>
-                              <td>${i['Última venda'] || ''}</td>
-                              <td>${i['Última Compra'] || ''}</td>
-                              <td>${i['Fornecedor'] || ''}</td>
-                              <td><button class="btn-qr" data-valor="${qrValor}">📷 QR</button></td>
-                             </tr>`;
+                    <td class="codigo">${i['Codigo'] || ''}</td>
+                    <td>${i['Nome'] || ''}</td>
+                    <td class="qtde">${estoque}</td>
+                    <td class="qtde">${i['Dias sem venda'] || ''}</td>
+                    <td>${i['Última venda'] || ''}</td>
+                    <td>${i['Última Compra'] || ''}</td>
+                    <td>${i['Fornecedor'] || ''}</td>
+                    <td>${locaisHTML}</td>
+                    <td><button class="btn-qr" data-valor="${qrValor}">📷 QR</button></td>
+                </tr>`;
             }
             html += `</tbody></table></div>`;
             conteudoDiv.innerHTML = html;
@@ -1004,16 +1003,23 @@
                 if (estoque === 0) classe = 'negativo';
                 else if (estoque < limite) classe = 'estoque-baixo';
                 const qrValor = (i['Codigo'] || '') + '0001';
+
+                const vinculos = obterVinculacoesDoProduto(i['Codigo']);
+                const locaisHTML = vinculos.length
+                    ? vinculos.map(formatarLocalVinculo).join('<br>')
+                    : '<span style="color:#94a3b8;">—</span>';
+
                 html += `<div class="card-item ${classe}">
-                            <div class="card-linha"><span class="label">Código:</span><span class="valor">${i['Codigo'] || ''}</span></div>
-                            <div class="card-linha"><span class="label">Nome:</span><span class="valor">${i['Nome'] || ''}</span></div>
-                            <div class="card-linha"><span class="label">Estoque:</span><span class="valor">${estoque}</span></div>
-                            <div class="card-linha"><span class="label">Dias sem venda:</span><span class="valor">${i['Dias sem venda'] || ''}</span></div>
-                            <div class="card-linha"><span class="label">Última venda:</span><span class="valor">${i['Última venda'] || ''}</span></div>
-                            <div class="card-linha"><span class="label">Última Compra:</span><span class="valor">${i['Última Compra'] || ''}</span></div>
-                            <div class="card-linha"><span class="label">Fornecedor:</span><span class="valor">${i['Fornecedor'] || ''}</span></div>
-                            <button class="btn-qr" data-valor="${qrValor}">📷 Gerar QR</button>
-                         </div>`;
+                    <div class="card-linha"><span class="label">Código:</span><span class="valor">${i['Codigo'] || ''}</span></div>
+                    <div class="card-linha"><span class="label">Nome:</span><span class="valor">${i['Nome'] || ''}</span></div>
+                    <div class="card-linha"><span class="label">Estoque:</span><span class="valor">${estoque}</span></div>
+                    <div class="card-linha"><span class="label">Dias sem venda:</span><span class="valor">${i['Dias sem venda'] || ''}</span></div>
+                    <div class="card-linha"><span class="label">Última venda:</span><span class="valor">${i['Última venda'] || ''}</span></div>
+                    <div class="card-linha"><span class="label">Última Compra:</span><span class="valor">${i['Última Compra'] || ''}</span></div>
+                    <div class="card-linha"><span class="label">Fornecedor:</span><span class="valor">${i['Fornecedor'] || ''}</span></div>
+                    <div class="card-linha"><span class="label">Locais vinculados:</span><span class="valor">${locaisHTML}</span></div>
+                    <button class="btn-qr" data-valor="${qrValor}">📷 Gerar QR</button>
+                </div>`;
             }
             html += `</div>`;
             conteudoDiv.innerHTML = html;
@@ -1029,24 +1035,25 @@
 
     // ==================== ABA ANÁLISE DE ESTOQUE ====================
     const todasColunasAnalise = [
-        { campo: 'codigo', label: 'Código', padrao: true },
-        { campo: 'nome', label: 'Produto', padrao: true },
-        { campo: 'fornecedor', label: 'Fornecedor', padrao: true },
-        { campo: 'estoque', label: 'Estoque', padrao: true },
-        { campo: 'diasSemVenda', label: 'Dias sem venda', padrao: true },
-        { campo: 'ultimaCompra', label: 'Última Compra', padrao: true },
-        { campo: 'locaisVinculados', label: 'Locais vinculados', padrao: true },
-        { campo: 'diasProximoVinculo', label: 'Dias p/ venc.', padrao: false },
-        { campo: 'sugestao', label: 'Sugestão', padrao: true },
-        { campo: 'motivo', label: 'Detalhe', padrao: false }
+        { campo: 'codigo',              label: 'Código',            padrao: true },
+        { campo: 'nome',                label: 'Produto',           padrao: true },
+        { campo: 'fornecedor',          label: 'Fornecedor',        padrao: true },
+        { campo: 'estoque',             label: 'Estoque',           padrao: true },
+        { campo: 'diasSemVenda',        label: 'Dias sem venda',    padrao: true },
+        { campo: 'ultimaCompra',        label: 'Última Compra',     padrao: true },
+        { campo: 'locaisVinculados',    label: 'Locais vinculados', padrao: true },
+        { campo: 'diasProximoVinculo',  label: 'Dias p/ venc.',     padrao: true },
+        { campo: 'sugestao',            label: 'Sugestão',          padrao: true },
+        { campo: 'motivo',              label: 'Detalhe',           padrao: false }
     ];
     let colunasVisiveis = [];
 
     function carregarPreferenciasAnalise() {
         const saved = localStorage.getItem('analise_colunas');
         if (saved) {
-            colunasVisiveis = JSON.parse(saved);
-        } else {
+            try { colunasVisiveis = JSON.parse(saved); } catch (e) { colunasVisiveis = null; }
+        }
+        if (!colunasVisiveis || !colunasVisiveis.length) {
             colunasVisiveis = todasColunasAnalise.filter(c => c.padrao).map(c => c.campo);
         }
     }
@@ -1086,6 +1093,7 @@
         const termo = document.getElementById('buscaAnalise').value.trim().toLowerCase();
         const termoForn = document.getElementById('buscaAnaliseFornecedor').value.trim().toLowerCase();
         const hoje = new Date();
+        hoje.setHours(0,0,0,0);
 
         if (!dadosEstoque.length) {
             document.getElementById('statsAnalise').textContent = '0 itens analisados';
@@ -1098,14 +1106,37 @@
         for (const est of dadosEstoque) {
             const cod = est['Codigo']?.toString();
             if (!cod) continue;
+
             const estoque = normalizarNumero(est['Estoque']);
             const diasSemVenda = parseInt(est['Dias sem venda']) || 0;
             const ultimaCompraStr = est['Última Compra'] || '';
             const ultimaCompraDate = parseDataBrasil(ultimaCompraStr);
             const diasUltimaCompra = ultimaCompraDate ? Math.floor((hoje - ultimaCompraDate) / (1000 * 3600 * 24)) : null;
 
+            // Cruzamento com vinculação (por COD interno via REFERENCIA)
+            const vinculos = obterVinculacoesDoProduto(cod);
+            const locaisHTML = vinculos.length
+                ? vinculos.map(formatarLocalVinculo).join('<br>')
+                : '<span style="color:#94a3b8;">—</span>';
+            const diasProximoVinculo = vinculos
+                .map(v => v.diasRestantes)
+                .filter(d => d !== null && d !== undefined)
+                .sort((a, b) => a - b)[0];
+            const temVinculo = vinculos.length > 0;
+            const temVencido = vinculos.some(v => v.diasRestantes !== null && v.diasRestantes < 0);
+            const temCritico = vinculos.some(v => v.diasRestantes !== null && v.diasRestantes >= 0 && v.diasRestantes <= 7);
+
             let sugestao = 'OK', motivo = '';
-            if (estoque > 0 && diasSemVenda > 60) {
+            if (temVencido) {
+                sugestao = '🔴 Vencido vinculado';
+                motivo = `Há produto vencido no(s) local(is) vinculado(s)`;
+            } else if (temCritico) {
+                sugestao = '🟠 Vence em ≤7 dias';
+                motivo = `Prioridade máxima — retirar/remarcar`;
+            } else if (estoque === 0 && temVinculo) {
+                sugestao = '⚪ Sem estoque, mas vinculado';
+                motivo = `Existe local vinculado sem saldo na loja`;
+            } else if (estoque > 0 && diasSemVenda > 60) {
                 sugestao = '⚠️ Baixo giro';
                 motivo = `Dias sem venda: ${diasSemVenda}`;
             } else if (diasUltimaCompra !== null && diasUltimaCompra > 180) {
@@ -1120,37 +1151,27 @@
             let match = true;
             if (termo) match = match && (cod.includes(termo) || (est['Nome'] || '').toLowerCase().includes(termo));
             if (termoForn) match = match && fornecedor.toLowerCase().includes(termoForn);
-            if (match) {
-                // Locais vinculados a este produto (por COD)
-                const vinculos = obterVinculacoesDoProduto(cod);
-                const locaisVinculadosHTML = vinculos.length
-                    ? vinculos.map(formatarLocalVinculo).join('<br>')
-                    : '<span style="color:#94a3b8;">—</span>';
-                const diasProximoVinculo = vinculos
-                    .map(v => v.diasRestantes)
-                    .filter(d => d !== null && d !== undefined)
-                    .sort((a, b) => a - b)[0];
+            if (!match) continue;
 
-                analise.push({
-                    codigo: cod,
-                    nome: est['Nome'] || '',
-                    fornecedor: fornecedor,
-                    estoque: estoque,
-                    diasSemVenda: diasSemVenda,
-                    ultimaCompra: ultimaCompraStr,
-                    locaisVinculados: locaisVinculadosHTML,
-                    diasProximoVinculo: diasProximoVinculo !== undefined ? diasProximoVinculo : 999999,
-                    sugestao: sugestao,
-                    motivo: motivo
-                });
-            }
+            analise.push({
+                codigo: cod,
+                nome: est['Nome'] || '',
+                fornecedor: fornecedor,
+                estoque: estoque,
+                diasSemVenda: diasSemVenda,
+                ultimaCompra: ultimaCompraStr,
+                locaisVinculados: locaisHTML,
+                diasProximoVinculo: diasProximoVinculo !== undefined ? diasProximoVinculo : 999999,
+                sugestao: sugestao,
+                motivo: motivo,
+                _prioridade: temVencido ? 0 : (temCritico ? 1 : 2)
+            });
         }
 
         let filtrados = analise;
         if (!ordenacao.analise.coluna) {
             filtrados.sort((a, b) => {
-                if (a.sugestao !== 'OK' && b.sugestao === 'OK') return -1;
-                if (a.sugestao === 'OK' && b.sugestao !== 'OK') return 1;
+                if (a._prioridade !== b._prioridade) return a._prioridade - b._prioridade;
                 return b.diasSemVenda - a.diasSemVenda;
             });
         } else {
@@ -1175,6 +1196,12 @@
             return;
         }
 
+        const classeDe = (item) => {
+            if (item._prioridade === 0) return 'prioridade-vencido';
+            if (item._prioridade === 1) return 'prioridade-critico';
+            return item.sugestao !== 'OK' ? 'negativo' : '';
+        };
+
         if (visao.analise === 'tabela') {
             let html = `<div class="tabela-wrapper"><table id="tabela-analise"><thead>`;
             for (const col of todasColunasAnalise) {
@@ -1186,7 +1213,7 @@
             html += `</thead><tbody>`;
             for (const a of ordenados) {
                 const qrValor = a.codigo + '0001';
-                html += `<tr class="${a.sugestao !== 'OK' ? 'negativo' : ''}">`;
+                html += `<tr class="${classeDe(a)}">`;
                 for (const col of todasColunasAnalise) {
                     if (colunasVisiveis.includes(col.campo)) {
                         let valor = a[col.campo];
@@ -1211,7 +1238,7 @@
             let html = `<div class="cards-view">`;
             for (const a of ordenados) {
                 const qrValor = a.codigo + '0001';
-                html += `<div class="card-item ${a.sugestao !== 'OK' ? 'negativo' : ''}">`;
+                html += `<div class="card-item ${classeDe(a)}">`;
                 for (const col of todasColunasAnalise) {
                     if (colunasVisiveis.includes(col.campo)) {
                         let valor = a[col.campo];
@@ -1237,8 +1264,9 @@
         } else document.getElementById('paginacaoAnalise').style.display = 'none';
     }
 
-    // ==================== ABA VALIDADE ====================
+    // ==================== ABA VALIDADE (lê da sheet Vinculacao) ====================
     function statusDoItem(dias) {
+        if (dias === null || dias === undefined) return { texto: 'Sem data', cor: '#94a3b8' };
         if (dias < 0) return { texto: 'Vencido', cor: '#6b7280' };
         if (dias <= 7) return { texto: 'Crítico', cor: '#ef4444' };
         if (dias <= 30) return { texto: 'Atenção', cor: '#f97316' };
@@ -1246,103 +1274,226 @@
         return { texto: 'OK', cor: '#10b981' };
     }
 
-    function agruparValidades(dados) {
-        const mapa = new Map();
-        dados.forEach(item => {
-            const chave = item.codigo || item.produto;
-            if (!mapa.has(chave)) {
-                mapa.set(chave, {
-                    codigo: item.codigo,
-                    produto: item.produto,
-                    fornecedor: item.fornecedor,
-                    locais: item.locais,
-                    lotes: [],
-                    totalEstoque: 0,
-                    numLotes: 0,
-                    validadeProxima: null,
-                    diasProximo: null
-                });
-            }
-            const grupo = mapa.get(chave);
-            grupo.lotes.push(item);
-            grupo.totalEstoque += item.estoqueAtualNum || 0;
-            grupo.numLotes++;
+    async function carregarVinculacaoSheet() {
+        try {
+            const resp = await fetch(URL_VINCULACAO);
+            if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+            const data = await resp.json();
 
-            if (item.dataValidade) {
-                if (!grupo.validadeProxima || item.dataValidade < grupo.validadeProxima) {
-                    grupo.validadeProxima = item.dataValidade;
-                    grupo.diasProximo = item.diasRestantes;
+            dadosVinculacaoSheet = data.map(item => ({
+                Local:         (item['Local']         || '').toString().trim(),
+                Codigo:        (item['Codigo']        || '').toString().trim(),
+                CodigoInterno: (item['CodigoInterno'] || '').toString().trim(),
+                SKU:           (item['SKU']           || '').toString().trim(),
+                Produto:       (item['Produto']       || '').toString().trim(),
+                Validade:      (item['Validade']      || '').toString().trim(),
+                DataHora:      (item['DataHora']      || '').toString().trim(),
+                RecebidoEm:    (item['RecebidoEm']    || '').toString().trim()
+            })).filter(r => r.Codigo || r.CodigoInterno || r.SKU);
+
+            console.log(`✓ Vinculacao (sheet): ${dadosVinculacaoSheet.length} itens`);
+            reconstruirMapaVinculacoes();
+        } catch (err) {
+            console.warn('Sheet Vinculacao indisponível:', err.message);
+            dadosVinculacaoSheet = [];
+            reconstruirMapaVinculacoes();
+        }
+    }
+
+    // ==================== MAPA DE VINCULAÇÕES ====================
+    let mapaVinculacoesPorCodigo = new Map();
+
+    function reconstruirMapaVinculacoes() {
+        mapaVinculacoesPorCodigo.clear();
+        const hoje = new Date();
+        hoje.setHours(0, 0, 0, 0);
+
+        // Fonte de verdade: sheet Vinculacao. Se vazia, cai no IndexedDB local.
+        const fonte = (dadosVinculacaoSheet && dadosVinculacaoSheet.length)
+            ? dadosVinculacaoSheet
+            : vinculacaoFila;
+
+        fonte.forEach(v => {
+            const chave = chaveVinculo(v);
+            if (!chave) return;
+
+            const valStr = v.Validade || v.validade || '';
+            let dias = null;
+            if (valStr) {
+                let d = null;
+                if (/^\d{4}-\d{2}-\d{2}/.test(valStr)) {
+                    const p = valStr.substring(0, 10).split('-');
+                    d = new Date(+p[0], +p[1] - 1, +p[2]);
+                } else if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(valStr)) {
+                    const p = valStr.split('/');
+                    d = new Date(+p[2], +p[1] - 1, +p[0]);
+                }
+                if (d && !isNaN(d.getTime())) {
+                    dias = Math.ceil((d - hoje) / (1000 * 60 * 60 * 24));
                 }
             }
+
+            const item = {
+                local: v.Local || v.local || '—',
+                validade: valStr.substring(0, 10),
+                diasRestantes: dias,
+                produto: v.Produto || v.produto || '',
+                codigoInterno: chave
+            };
+
+            if (!mapaVinculacoesPorCodigo.has(chave)) mapaVinculacoesPorCodigo.set(chave, []);
+            mapaVinculacoesPorCodigo.get(chave).push(item);
         });
 
-        for (const grupo of mapa.values()) {
-            grupo.lotes.sort((a, b) => a.dataValidade - b.dataValidade);
+        for (const arr of mapaVinculacoesPorCodigo.values()) {
+            arr.sort((a, b) => {
+                if (!a.validade && !b.validade) return 0;
+                if (!a.validade) return 1;
+                if (!b.validade) return -1;
+                return a.validade.localeCompare(b.validade);
+            });
         }
+    }
 
-        return Array.from(mapa.values());
+    function obterVinculacoesDoProduto(codigo) {
+        if (!codigo) return [];
+        const interno = obterCodigoInterno(codigo);
+        if (!interno) return [];
+        return mapaVinculacoesPorCodigo.get(interno) || [];
+    }
+
+    function formatarLocalVinculo(v) {
+        const local = v.local || '—';
+        if (!v.validade) return `<span class="vinc-local">${local}</span> <small>(sem validade)</small>`;
+        const d = v.diasRestantes;
+        let cor = '#10b981';
+        if (d < 0)        cor = '#6b7280';
+        else if (d <= 7)  cor = '#ef4444';
+        else if (d <= 30) cor = '#f97316';
+        else if (d <= 90) cor = '#eab308';
+        const dataBR = v.validade.split('-').reverse().join('/');
+        const label = d < 0 ? 'VENCIDO' : `${d}d`;
+        return `<span style="color:${cor}; font-weight:600;">${local}</span> <small>(${dataBR} · ${label})</small>`;
+    }
+
+    function coletarValidadeDaSheet() {
+        const hoje = new Date();
+        hoje.setHours(0, 0, 0, 0);
+
+        return dadosVinculacaoSheet.map((v, idx) => {
+            const valStr = v.Validade || '';
+            let dataObj = null;
+            let dias = null;
+
+            if (valStr) {
+                if (/^\d{4}-\d{2}-\d{2}/.test(valStr)) {
+                    const p = valStr.substring(0, 10).split('-');
+                    dataObj = new Date(+p[0], +p[1] - 1, +p[2]);
+                } else if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(valStr)) {
+                    const p = valStr.split('/');
+                    dataObj = new Date(+p[2], +p[1] - 1, +p[0]);
+                }
+                if (dataObj && !isNaN(dataObj.getTime())) {
+                    dias = Math.ceil((dataObj - hoje) / (1000 * 60 * 60 * 24));
+                }
+            }
+
+            const bruto = v.CodigoInterno || v.SKU || v.Codigo || '';
+            const interno = obterCodigoInterno(bruto) || bruto;
+            const produtoNome = v.Produto || obterNomeProduto(bruto) || '';
+
+            return {
+                id: idx,
+                codigo: v.Codigo || interno,
+                codigoInterno: interno,
+                sku: v.SKU || '',
+                produto: produtoNome,
+                local: v.Local || '—',
+                validadeStr: valStr.substring(0, 10),
+                dataValidade: dataObj,
+                diasRestantes: dias,
+                dataHora: v.DataHora || ''
+            };
+        }).filter(r => r.codigo || r.codigoInterno);
     }
 
     function aplicarFiltroValidade() {
-        const termo = document.getElementById('buscaValidade').value.trim().toLowerCase();
-        const termoForn = document.getElementById('buscaValidadeFornecedor').value.trim().toLowerCase();
-        let filtrados = dadosValidade;
-        if (termo || termoForn) {
-            filtrados = filtrados.filter(i => {
-                const cod = i.codigo.toLowerCase();
-                const prod = i.produto.toLowerCase();
-                const forn = i.fornecedor.toLowerCase();
-                let match = true;
-                if (termo) match = match && (cod.includes(termo) || prod.includes(termo));
-                if (termoForn) match = match && forn.includes(termoForn);
-                return match;
-            });
+        const termo = (document.getElementById('buscaValidade').value || '').trim().toLowerCase();
+        const termoForn = (document.getElementById('buscaValidadeFornecedor').value || '').trim().toLowerCase();
+        const termoLocal = (document.getElementById('buscaValidadeLocal').value || '').trim().toLowerCase();
+
+        let filtrados = coletarValidadeDaSheet();
+
+        // Enriquece com fornecedor do EstoqueVirtual
+        const mapaForn = new Map();
+        dadosEstoque.forEach(e => {
+            const c = (e.Codigo || '').toString();
+            const forn = (e.Fornecedor || '').toString();
+            if (c) mapaForn.set(c, forn);
+            const s = c.replace(/^0+/, '');
+            if (s) mapaForn.set(s, forn);
+        });
+
+        filtrados = filtrados.map(r => {
+            const chaves = [r.codigo, r.codigoInterno, r.sku].filter(Boolean);
+            let forn = '';
+            for (const k of chaves) {
+                const s = k.toString().replace(/^0+/, '');
+                if (mapaForn.has(k)) { forn = mapaForn.get(k); break; }
+                if (mapaForn.has(s)) { forn = mapaForn.get(s); break; }
+            }
+            return { ...r, fornecedor: forn };
+        });
+
+        if (termo) {
+            filtrados = filtrados.filter(r =>
+                r.codigo.toString().toLowerCase().includes(termo) ||
+                (r.codigoInterno || '').toString().toLowerCase().includes(termo) ||
+                (r.sku || '').toString().toLowerCase().includes(termo) ||
+                (r.produto || '').toLowerCase().includes(termo)
+            );
         }
+        if (termoForn) filtrados = filtrados.filter(r => (r.fornecedor || '').toLowerCase().includes(termoForn));
+        if (termoLocal) filtrados = filtrados.filter(r => (r.local || '').toLowerCase().includes(termoLocal));
+
         if (filtroStatusValidade !== 'todos') {
-            filtrados = filtrados.filter(i => {
-                const d = i.diasRestantes;
-                if (d === null) return false;
-                switch(filtroStatusValidade) {
-                    case 'vencidos': return d < 0;
-                    case 'criticos': return d >= 0 && d <= 7;
-                    case 'atencao': return d >= 8 && d <= 30;
-                    case 'proximos': return d >= 31 && d <= 90;
+            filtrados = filtrados.filter(r => {
+                const d = r.diasRestantes;
+                if (d === null) return filtroStatusValidade === 'semdata';
+                switch (filtroStatusValidade) {
+                    case 'vencidos':  return d < 0;
+                    case 'criticos':  return d >= 0 && d <= 7;
+                    case 'atencao':   return d >= 8 && d <= 30;
+                    case 'proximos':  return d >= 31 && d <= 90;
+                    case 'ok':        return d > 90;
                     default: return true;
                 }
             });
         }
 
-        let dadosParaExibir;
-        if (modoAgrupadoValidade) {
-            const grupos = agruparValidades(filtrados);
-            dadosParaExibir = grupos;
-            document.getElementById('statsValidade').innerText = `${dadosParaExibir.length} produtos`;
-        } else {
-            dadosParaExibir = filtrados;
-            document.getElementById('statsValidade').innerText = `${dadosParaExibir.length} itens`;
-        }
+        filtrados.sort((a, b) => {
+            if (a.diasRestantes === null && b.diasRestantes === null) return 0;
+            if (a.diasRestantes === null) return 1;
+            if (b.diasRestantes === null) return -1;
+            return a.diasRestantes - b.diasRestantes;
+        });
 
-        paginacao.validade.dadosFiltrados = dadosParaExibir;
-        paginacao.validade.totalPaginas = Math.ceil(dadosParaExibir.length / ITENS_POR_PAGINA);
+        document.getElementById('statsValidade').innerText = `${filtrados.length} itens`;
+
+        paginacao.validade.dadosFiltrados = filtrados;
+        paginacao.validade.totalPaginas = Math.max(1, Math.ceil(filtrados.length / ITENS_POR_PAGINA));
         paginacao.validade.paginaAtual = 1;
         renderizarValidade();
     }
 
     function renderizarValidade() {
-        if (modoAgrupadoValidade) {
-            renderizarValidadeAgrupada();
-        } else {
-            renderizarValidadeDetalhada();
-        }
-    }
-
-    function renderizarValidadeDetalhada() {
         const { dadosFiltrados, paginaAtual, totalPaginas } = paginacao.validade;
         const inicio = (paginaAtual - 1) * ITENS_POR_PAGINA;
-        const ordenados = ordenarDados(dadosFiltrados.slice(inicio, inicio+ITENS_POR_PAGINA), ordenacao.validade.coluna, ordenacao.validade.direcao);
+        const ordenados = dadosFiltrados.slice(inicio, inicio + ITENS_POR_PAGINA);
         const conteudoDiv = document.getElementById('conteudoValidade');
+
         if (!ordenados.length) {
-            conteudoDiv.innerHTML = '<div class="vazio">Nenhum item.</div>';
+            conteudoDiv.innerHTML = '<div class="vazio">Nenhum item com validade na planilha. Registre na aba 📍 Vínculo Local e sincronize.</div>';
             document.getElementById('paginacaoValidade').style.display = 'none';
             return;
         }
@@ -1350,32 +1501,31 @@
         if (visao.validade === 'tabela') {
             let html = `<div class="tabela-wrapper"><table id="tabela-validade"><thead>`;
             const colunas = [
-                { chave: 'dataValidade', label: 'Validade' },
-                { chave: 'codigo', label: 'Código' },
-                { chave: 'produto', label: 'Produto' },
-                { chave: 'fornecedor', label: 'Fornecedor' },
-                { chave: 'locais', label: 'Locais' },
-                { chave: 'estoqueAtual', label: 'Estoque atual' },
-                { chave: 'diasRestantes', label: 'Dias restantes' },
-                { chave: 'ultimaCompra', label: 'Última compra' },
-                { chave: 'qtdeUltimaCompra', label: 'Qtde. última compra' }
+                { chave: 'diasRestantes', label: 'Dias' },
+                { chave: 'validadeStr',   label: 'Validade' },
+                { chave: 'local',         label: 'Local' },
+                { chave: 'codigo',        label: 'Código' },
+                { chave: 'codigoInterno', label: 'Cód. interno' },
+                { chave: 'produto',       label: 'Produto' },
+                { chave: 'fornecedor',    label: 'Fornecedor' },
+                { chave: 'dataHora',      label: 'Registrado em' }
             ];
-            colunas.forEach(col => {
-                html += `<th>${col.label} <span class="ordenar-btn" data-coluna="${col.chave}">⇅</span></th>`;
+            colunas.forEach(c => {
+                html += `<th>${c.label} <span class="ordenar-btn" data-coluna="${c.chave}">⇅</span></th>`;
             });
             html += `</thead><tbody>`;
             for (const i of ordenados) {
                 const st = statusDoItem(i.diasRestantes);
+                const dataHoraFmt = i.dataHora ? new Date(i.dataHora).toLocaleString('pt-BR') : '—';
                 html += `<tr style="border-left: 6px solid ${st.cor};">
-                    <td>${i.dataValidade ? i.dataValidade.toLocaleDateString('pt-BR') : ''}</td>
+                    <td class="qtde" style="color:${st.cor}; font-weight:600;">${i.diasRestantes === null ? '—' : i.diasRestantes}</td>
+                    <td>${i.validadeStr ? i.validadeStr.split('-').reverse().join('/') : '—'}</td>
+                    <td class="codigo">${i.local}</td>
                     <td class="codigo">${i.codigo}</td>
-                    <td>${i.produto}</td>
-                    <td>${i.fornecedor}</td>
-                    <td>${i.locais}</td>
-                    <td class="qtde">${i.estoqueAtual}</td>
-                    <td class="qtde">${i.diasRestantes}</td>
-                    <td>${i.ultimaCompra}</td>
-                    <td class="qtde">${i.qtdeUltimaCompra}</td>
+                    <td class="codigo">${i.codigoInterno || ''}</td>
+                    <td>${i.produto || '<em>desconhecido</em>'}</td>
+                    <td>${i.fornecedor || ''}</td>
+                    <td>${dataHoraFmt}</td>
                 </tr>`;
             }
             html += `</tbody></table></div>`;
@@ -1385,123 +1535,21 @@
             let html = `<div class="cards-view">`;
             for (const i of ordenados) {
                 const st = statusDoItem(i.diasRestantes);
-                html += `<div class="card-item" style="border-left-color: ${st.cor};">
-                    <div class="card-linha"><span class="label">Status:</span><span class="valor" style="background:${st.cor};color:white;padding:2px 8px;border-radius:12px;">${st.texto}</span></div>
-                    <div class="card-linha"><span class="label">Validade:</span><span class="valor">${i.dataValidade ? i.dataValidade.toLocaleDateString('pt-BR') : ''}</span></div>
+                const dataHoraFmt = i.dataHora ? new Date(i.dataHora).toLocaleString('pt-BR') : '—';
+                html += `<div class="card-item" style="border-left-color:${st.cor};">
+                    <div class="card-linha"><span class="label">Status:</span><span class="valor" style="background:${st.cor}; color:white; padding:2px 10px; border-radius:12px;">${st.texto}${i.diasRestantes !== null ? ' · ' + i.diasRestantes + 'd' : ''}</span></div>
+                    <div class="card-linha"><span class="label">Validade:</span><span class="valor">${i.validadeStr ? i.validadeStr.split('-').reverse().join('/') : '—'}</span></div>
+                    <div class="card-linha"><span class="label">Local:</span><span class="valor vinc-local">${i.local}</span></div>
                     <div class="card-linha"><span class="label">Código:</span><span class="valor">${i.codigo}</span></div>
-                    <div class="card-linha"><span class="label">Produto:</span><span class="valor">${i.produto}</span></div>
-                    <div class="card-linha"><span class="label">Fornecedor:</span><span class="valor">${i.fornecedor}</span></div>
-                    <div class="card-linha"><span class="label">Locais:</span><span class="valor">${i.locais}</span></div>
-                    <div class="card-linha"><span class="label">Estoque atual:</span><span class="valor">${i.estoqueAtual}</span></div>
-                    <div class="card-linha"><span class="label">Dias restantes:</span><span class="valor">${i.diasRestantes}</span></div>
-                    <div class="card-linha"><span class="label">Última compra:</span><span class="valor">${i.ultimaCompra}</span></div>
-                    <div class="card-linha"><span class="label">Qtde. última compra:</span><span class="valor">${i.qtdeUltimaCompra}</span></div>
+                    <div class="card-linha"><span class="label">Cód. interno:</span><span class="valor">${i.codigoInterno || '—'}</span></div>
+                    <div class="card-linha"><span class="label">Produto:</span><span class="valor">${i.produto || '<em>desconhecido</em>'}</span></div>
+                    <div class="card-linha"><span class="label">Fornecedor:</span><span class="valor">${i.fornecedor || '—'}</span></div>
+                    <div class="card-linha"><span class="label">Registrado em:</span><span class="valor">${dataHoraFmt}</span></div>
                 </div>`;
             }
             html += `</div>`;
             conteudoDiv.innerHTML = html;
         }
-        if (totalPaginas > 1) {
-            const pagDiv = document.getElementById('paginacaoValidade');
-            pagDiv.style.display = 'flex';
-            pagDiv.innerHTML = gerarBotoesPaginacao(paginaAtual, totalPaginas, 'validade');
-        } else {
-            document.getElementById('paginacaoValidade').style.display = 'none';
-        }
-    }
-
-    function renderizarValidadeAgrupada() {
-        const { dadosFiltrados, paginaAtual, totalPaginas } = paginacao.validade;
-        const inicio = (paginaAtual - 1) * ITENS_POR_PAGINA;
-        const grupos = ordenarDados(dadosFiltrados.slice(inicio, inicio+ITENS_POR_PAGINA), ordenacao.validade.coluna, ordenacao.validade.direcao);
-        const conteudoDiv = document.getElementById('conteudoValidade');
-        if (!grupos.length) {
-            conteudoDiv.innerHTML = '<div class="vazio">Nenhum produto.</div>';
-            document.getElementById('paginacaoValidade').style.display = 'none';
-            return;
-        }
-
-        if (visao.validade === 'tabela') {
-            let html = `<div class="tabela-wrapper"><table id="tabela-validade-agrupada"><thead>`;
-            html += `<th></th>`;
-            const colunas = [
-                { chave: 'codigo', label: 'Código' },
-                { chave: 'produto', label: 'Produto' },
-                { chave: 'fornecedor', label: 'Fornecedor' },
-                { chave: 'totalEstoque', label: 'Estoque total' },
-                { chave: 'numLotes', label: 'Nº lotes' },
-                { chave: 'validadeProxima', label: 'Validade próxima' },
-                { chave: 'diasProximo', label: 'Dias' }
-            ];
-            colunas.forEach(col => {
-                html += `<th>${col.label} <span class="ordenar-btn" data-coluna="${col.chave}">⇅</span></th>`;
-            });
-            html += `</thead><tbody>`;
-            grupos.forEach((g, idx) => {
-                const st = statusDoItem(g.diasProximo);
-                html += `<tr style="border-left: 6px solid ${st.cor}; cursor:pointer;" onclick="toggleLotes(${idx})">
-                    <td><span id="seta-${idx}">▸</span></td>
-                    <td class="codigo">${g.codigo}</td>
-                    <td>${g.produto}</td>
-                    <td>${g.fornecedor}</td>
-                    <td class="qtde">${g.totalEstoque}</td>
-                    <td class="qtde">${g.numLotes}</td>
-                    <td>${g.validadeProxima ? g.validadeProxima.toLocaleDateString('pt-BR') : ''}</td>
-                    <td class="qtde">${g.diasProximo}</td>
-                </tr>`;
-                html += `<tr id="lotes-${idx}" style="display:none;">
-                    <td colspan="8" style="background:#f8fafc; padding:0;">
-                        <table style="width:100%; border-collapse:collapse;">
-                            <thead><tr><th>Validade</th><th>Estoque</th><th>Última compra</th><th>Qtde última compra</th><th>Dias</th><th>Status</th></tr></thead>
-                            <tbody>`;
-                g.lotes.forEach(l => {
-                    const lst = statusDoItem(l.diasRestantes);
-                    html += `<tr>
-                        <td>${l.dataValidade.toLocaleDateString('pt-BR')}</td>
-                        <td class="qtde">${l.estoqueAtual}</td>
-                        <td>${l.ultimaCompra}</td>
-                        <td class="qtde">${l.qtdeUltimaCompra}</td>
-                        <td class="qtde">${l.diasRestantes}</td>
-                        <td><span style="background:${lst.cor};color:white;padding:2px 8px;border-radius:12px;">${lst.texto}</span></td>
-                    </tr>`;
-                });
-                html += `</tbody></table></td></tr>`;
-            });
-            html += `</tbody></table></div>`;
-            conteudoDiv.innerHTML = html;
-            attachOrdenacao('tabela-validade-agrupada', 'validade');
-        } else {
-            let html = `<div class="cards-view">`;
-            grupos.forEach((g, idx) => {
-                const st = statusDoItem(g.diasProximo);
-                html += `<div class="card-item" style="border-left-color: ${st.cor};">
-                    <div class="card-linha"><span class="label">Status:</span><span class="valor" style="background:${st.cor};color:white;padding:2px 8px;border-radius:12px;">${st.texto}</span></div>
-                    <div class="card-linha"><span class="label">Código:</span><span class="valor">${g.codigo}</span></div>
-                    <div class="card-linha"><span class="label">Produto:</span><span class="valor">${g.produto}</span></div>
-                    <div class="card-linha"><span class="label">Fornecedor:</span><span class="valor">${g.fornecedor}</span></div>
-                    <div class="card-linha"><span class="label">Estoque total:</span><span class="valor">${g.totalEstoque}</span></div>
-                    <div class="card-linha"><span class="label">Nº lotes:</span><span class="valor">${g.numLotes}</span></div>
-                    <div class="card-linha"><span class="label">Validade próxima:</span><span class="valor">${g.validadeProxima ? g.validadeProxima.toLocaleDateString('pt-BR') : ''}</span></div>
-                    <div class="card-linha"><span class="label">Dias restantes:</span><span class="valor">${g.diasProximo}</span></div>
-                    <details>
-                        <summary>Ver lotes (${g.numLotes})</summary>
-                        <table style="width:100%; border-collapse:collapse; margin-top:8px;">
-                            <thead><tr><th>Validade</th><th>Estoque</th><th>Última compra</th><th>Qtde</th><th>Dias</th></tr></thead>
-                            <tbody>`;
-                g.lotes.forEach(l => {
-                    html += `<tr>
-                        <td>${l.dataValidade.toLocaleDateString('pt-BR')}</td>
-                        <td class="qtde">${l.estoqueAtual}</td>
-                        <td>${l.ultimaCompra}</td>
-                        <td class="qtde">${l.qtdeUltimaCompra}</td>
-                        <td class="qtde">${l.diasRestantes}</td>
-                    </tr>`;
-                });
-                html += `</tbody></table></details></div>`;
-            });
-            html += `</div>`;
-            conteudoDiv.innerHTML = html;
-        }
 
         if (totalPaginas > 1) {
             const pagDiv = document.getElementById('paginacaoValidade');
@@ -1511,20 +1559,6 @@
             document.getElementById('paginacaoValidade').style.display = 'none';
         }
     }
-
-    window.toggleLotes = function(idx) {
-        const linha = document.getElementById(`lotes-${idx}`);
-        const seta = document.getElementById(`seta-${idx}`);
-        if (linha && seta) {
-            if (linha.style.display === 'none') {
-                linha.style.display = 'table-row';
-                seta.textContent = '▾';
-            } else {
-                linha.style.display = 'none';
-                seta.textContent = '▸';
-            }
-        }
-    };
 
     // ==================== FUNÇÕES GLOBAIS ====================
     function attachQrEvents() {
@@ -1567,6 +1601,7 @@
         tabela.querySelectorAll('.ordenar-btn').forEach(btn => {
             btn.addEventListener('click', e => {
                 const col = btn.dataset.coluna;
+                if (!col) return;
                 if (ordenacao[aba].coluna === col) {
                     ordenacao[aba].direcao = ordenacao[aba].direcao === 'asc' ? 'desc' : 'asc';
                 } else {
@@ -1595,12 +1630,6 @@
     document.getElementById('btnVisaoAnalise').addEventListener('click', () => alternarVisao('analise'));
     document.getElementById('btnVisaoValidade').addEventListener('click', () => alternarVisao('validade'));
 
-    document.getElementById('btnModoValidade').addEventListener('click', () => {
-        modoAgrupadoValidade = !modoAgrupadoValidade;
-        document.getElementById('btnModoValidade').textContent = modoAgrupadoValidade ? '🗂️ Modo: Agrupado' : '📋 Modo: Detalhado';
-        aplicarFiltroValidade();
-    });
-
     document.getElementById('buscaCodBalanca').addEventListener('input', aplicarFiltroCodBalanca);
     document.getElementById('buscaEstoque').addEventListener('input', aplicarFiltroEstoque);
     document.getElementById('buscaEstoqueFornecedor').addEventListener('input', aplicarFiltroEstoque);
@@ -1608,12 +1637,25 @@
     document.getElementById('buscaAnaliseFornecedor').addEventListener('input', aplicarFiltroAnalise);
     document.getElementById('buscaValidade').addEventListener('input', aplicarFiltroValidade);
     document.getElementById('buscaValidadeFornecedor').addEventListener('input', aplicarFiltroValidade);
+    document.getElementById('buscaValidadeLocal').addEventListener('input', aplicarFiltroValidade);
 
-    document.querySelectorAll('.filtro-status').forEach(btn => {
+    document.querySelectorAll('.filtro-status-val').forEach(btn => {
         btn.addEventListener('click', (e) => {
             filtroStatusValidade = e.target.dataset.status;
+            document.querySelectorAll('.filtro-status-val').forEach(b => b.style.fontWeight = '500');
+            e.target.style.fontWeight = '700';
             aplicarFiltroValidade();
         });
+    });
+
+    document.getElementById('btnAtualizarValidade').addEventListener('click', async () => {
+        const btn = document.getElementById('btnAtualizarValidade');
+        btn.disabled = true;
+        btn.textContent = '🔄 Atualizando…';
+        await carregarVinculacaoSheet();
+        aplicarFiltroValidade();
+        btn.disabled = false;
+        btn.textContent = '🔄 Atualizar da vinculação';
     });
 
     document.getElementById('btnConfigColunas').addEventListener('click', abrirModalColunas);
@@ -1654,6 +1696,7 @@
         } else if (abaAtiva === 'validade') {
             document.getElementById('buscaValidade').value = termo;
             document.getElementById('buscaValidadeFornecedor').value = '';
+            document.getElementById('buscaValidadeLocal').value = '';
             aplicarFiltroValidade();
         }
     });
@@ -1665,10 +1708,15 @@
         abaBtns.forEach(btn => {
             btn.classList.toggle('ativo', btn.dataset.aba === abaId);
         });
-        // Ao entrar em Análise, re-renderiza para refletir vinculações novas
+
         if (abaId === 'analise') {
             reconstruirMapaVinculacoes();
             aplicarFiltroAnalise();
+        } else if (abaId === 'estoquevirtual') {
+            reconstruirMapaVinculacoes();
+            renderizarEstoque();
+        } else if (abaId === 'validade') {
+            carregarVinculacaoSheet().then(() => aplicarFiltroValidade());
         }
     }
 
@@ -1682,7 +1730,7 @@
     carregarPreferenciasAnalise();
 
     // ==================== ABA VÍNCULO LOCAL (IndexedDB) ====================
-    const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwuHlcFsM-21QIfXDZCJAJnWzSZC1BYlpDhd_apzNc68kbhrR7I6oWELD8XmQnPjnAa/exec'
+    const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyOX3a0-_Tb4xOiScklwNMi_SSNTxdBuQSehD3-AqAkgbNPi8-MCblFSVbyBrbBk8yX/exec';
     const TOKEN_VINC = 'teste000';
 
     const dbPromise = idb.openDB('gestao-setor', 1, {
@@ -1718,7 +1766,7 @@
     let ultimoCodigo = '';
     const COOLDOWN_MS = 1800;
 
-    // ==================== REFERENCIA (nome do produto) ====================
+    // ==================== REFERENCIA (busca direta) ====================
     function buscarReferencia(codigo) {
         if (!codigo) return null;
         const raw = codigo.toString().trim();
@@ -1731,95 +1779,32 @@
     }
 
     function enriquecerCodigo(codigo) {
-        const ref = buscarReferencia(codigo);
+        if (!codigo) return { produto: '', codigoInterno: '', sku: '' };
+        const raw = codigo.toString().trim();
+        const semZero = raw.replace(/^0+/, '');
+
+        const ref = mapaReferenciaSKU.get(raw)
+            || mapaReferenciaSKU.get(semZero)
+            || mapaReferenciaCOD.get(raw)
+            || mapaReferenciaCOD.get(semZero);
+
         if (ref) {
             return {
                 produto: ref.PRODUTO || '',
-                codigoInterno: ref.COD || '',
-                sku: ref.SKU || ''
+                codigoInterno: (ref.COD || '').toString(),
+                sku: (ref.SKU || '').toString()
             };
         }
-        // fallback: EstoqueVirtual
+
         if (dadosEstoque && dadosEstoque.length) {
-            const cod = codigo.toString().replace(/^0+/, '');
             const item = dadosEstoque.find(e => {
                 const c = (e.Codigo || '').toString().replace(/^0+/, '');
-                return c === cod || c === codigo.toString();
+                return c === semZero || (e.Codigo || '').toString() === raw;
             });
             if (item) return { produto: item.Nome || '', codigoInterno: item.Codigo || '', sku: '' };
         }
+
         return { produto: '', codigoInterno: '', sku: '' };
-    }
-
-    // ==================== MAPA DE VINCULAÇÕES (para Análise) ====================
-    let mapaVinculacoesPorCodigo = new Map();
-
-    function reconstruirMapaVinculacoes() {
-        mapaVinculacoesPorCodigo.clear();
-        const hoje = new Date();
-        hoje.setHours(0,0,0,0);
-
-        vinculacaoFila.forEach(v => {
-            const chaves = [];
-            if (v.codigoInterno) chaves.push(v.codigoInterno.toString());
-            if (v.codigo) {
-                const c = v.codigo.toString();
-                if (!chaves.includes(c)) chaves.push(c);
-            }
-            if (!chaves.length) return;
-
-            const diasRestantes = v.validade
-                ? Math.ceil((new Date(v.validade + 'T00:00:00') - hoje) / (1000*60*60*24))
-                : null;
-
-            const item = {
-                local: v.local || '—',
-                validade: v.validade || '',
-                diasRestantes,
-                status: v.status
-            };
-
-            chaves.forEach(k => {
-                const semZero = k.replace(/^0+/, '');
-                [k, semZero].forEach(kk => {
-                    if (!kk) return;
-                    if (!mapaVinculacoesPorCodigo.has(kk)) mapaVinculacoesPorCodigo.set(kk, []);
-                    mapaVinculacoesPorCodigo.get(kk).push(item);
-                });
-            });
-        });
-
-        for (const arr of mapaVinculacoesPorCodigo.values()) {
-            arr.sort((a, b) => {
-                if (!a.validade && !b.validade) return 0;
-                if (!a.validade) return 1;
-                if (!b.validade) return -1;
-                return a.validade.localeCompare(b.validade);
-            });
-        }
-    }
-
-    function obterVinculacoesDoProduto(codigo) {
-        if (!codigo) return [];
-        const raw = codigo.toString();
-        const semZero = raw.replace(/^0+/, '');
-        return mapaVinculacoesPorCodigo.get(raw)
-            || mapaVinculacoesPorCodigo.get(semZero)
-            || [];
-    }
-
-    function formatarLocalVinculo(v) {
-        const local = v.local || '—';
-        if (!v.validade) return `<span class="vinc-local">${local}</span> <small>(sem validade)</small>`;
-        const d = v.diasRestantes;
-        let cor = '#10b981';
-        if (d < 0)        cor = '#6b7280';
-        else if (d <= 7)  cor = '#ef4444';
-        else if (d <= 30) cor = '#f97316';
-        else if (d <= 90) cor = '#eab308';
-        const dataBR = v.validade.split('-').reverse().join('/');
-        const label = d < 0 ? 'VENCIDO' : `${d}d`;
-        return `<span style="color:${cor}; font-weight:600;">${local}</span> <small>(${dataBR} · ${label})</small>`;
     }
 
     // ==================== FLUXO DE VINCULAÇÃO ====================
@@ -1870,9 +1855,7 @@
                 semLocal ? 'sem-local' : ''
             ].filter(Boolean).join(' ');
 
-            const produtoLabel = r.produto
-                ? r.produto
-                : '<em>desconhecido</em>';
+            const produtoLabel = r.produto ? r.produto : '<em>desconhecido</em>';
 
             html += `<tr class="${classes}">
                 <td class="codigo">${r.local || '⚠️ —'}</td>
@@ -1960,7 +1943,6 @@
     async function onScanSuccess(texto) {
         const agora = Date.now();
 
-        // Cooldown: bloqueia leituras repetidas/rápidas
         if (texto === ultimoCodigo && (agora - ultimaLeitura) < COOLDOWN_MS) return;
         if ((agora - ultimaLeitura) < COOLDOWN_MS) return;
 
@@ -2011,7 +1993,6 @@
         const btn = document.getElementById('btnSincronizar');
         btn.disabled = true;
         btn.style.opacity = '0.6';
-        // NÃO alteramos innerHTML — o <span id="qtdFila"> precisa continuar vivo
 
         try {
             const resp = await fetch(APPS_SCRIPT_URL, {
@@ -2029,6 +2010,7 @@
                     await db.put(p);
                 }
                 renderizarVinculacao();
+                await carregarVinculacaoSheet();
                 alert(`✓ ${json.inseridos || pendentes.length} registro(s) enviados.`);
             } else {
                 alert('Falha no envio: ' + (json.erro || 'desconhecido'));
@@ -2041,7 +2023,7 @@
         }
     }
 
-    // ==================== EVENTOS ====================
+    // ==================== EVENTOS DA VINCULAÇÃO ====================
     document.getElementById('btnLerLocal').addEventListener('click', () => abrirScanner('local'));
     document.getElementById('btnLerProduto').addEventListener('click', () => {
         if (!localVinculoAtual) { alert('Defina um local primeiro (botão "Ler Local").'); return; }
@@ -2064,7 +2046,6 @@
         renderizarVinculacao();
     });
 
-    // Entrada manual — Local
     document.getElementById('btnLocalManual').addEventListener('click', async () => {
         const valor = document.getElementById('inputLocalManual').value.trim();
         if (!valor) { alert('Digite um código de local.'); return; }
@@ -2075,7 +2056,6 @@
         if (e.key === 'Enter') document.getElementById('btnLocalManual').click();
     });
 
-    // Entrada manual — Produto
     document.getElementById('btnProdutoManual').addEventListener('click', async () => {
         if (!localVinculoAtual) { alert('Defina um local primeiro.'); return; }
         const valor = document.getElementById('inputProdutoManual').value.trim();
@@ -2099,13 +2079,16 @@
         carregarCodBalanca(),
         carregarEstoque(),
         carregarAnalise(),
-        carregarValidade()
+        carregarVinculacaoSheet()
     ]).then(() => {
         console.log('Carregamento concluído');
-        carregarVinculacao();   // roda depois de REFERENCIA estar pronta
+        carregarVinculacao().then(() => {
+            reconstruirMapaVinculacoes();
+            aplicarFiltroValidade();
+        });
     });
 
-    // ==================== SERVICE WORKER (PWA / offline) ====================
+    // ==================== SERVICE WORKER ====================
     if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
             navigator.serviceWorker.register('./sw.js')
