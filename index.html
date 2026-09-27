@@ -454,6 +454,41 @@
         .card-item.prioridade-vencido { border-left-color: #ef4444; background: #fef2f2; }
         .card-item.prioridade-critico { border-left-color: #f97316; background: #fff7ed; }
 
+        /* ====== ABA LOCAIS ====== */
+        .local-item {
+            background: white;
+            border-radius: 16px;
+            padding: 14px 16px;
+            margin-bottom: 10px;
+            border: 1px solid #e2e8f0;
+            border-left: 4px solid #2563eb;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+        .local-item.inativo { opacity: 0.55; border-left-color: #94a3b8; }
+        .local-item.pendente { border-left-color: #d97706; }
+        .local-item .info { flex: 1; min-width: 180px; }
+        .local-item .codigo { font-family: monospace; font-weight: 700; font-size: 1.05rem; }
+        .local-item .desc { color: #475569; font-size: 0.9rem; margin-top: 2px; }
+        .local-item .obs { color: #94a3b8; font-size: 0.8rem; margin-top: 2px; font-style: italic; }
+        .local-item .badge-pend { color:#d97706; font-weight: 600; font-size: 0.8rem; margin-left:6px; }
+        .local-item .badge-inativo { color:#64748b; font-weight: 600; font-size: 0.8rem; margin-left:6px; }
+        .local-item .acoes { display: flex; gap: 6px; flex-wrap: wrap; }
+        .local-item .acoes button { padding: 6px 12px; font-size: 0.8rem; }
+
+        #conteudoLocais .vazio {
+            text-align: center;
+            padding: 40px 16px;
+            background: #f1f5f9;
+            border-radius: 16px;
+            color: #475569;
+            font-style: italic;
+        }
+
         #leitor video { width: 100% !important; height: auto !important; }
     </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
@@ -480,6 +515,7 @@
         <button class="aba-btn" data-aba="analise">📉 Análise de Estoque</button>
         <button class="aba-btn" data-aba="validade">📅 Validade</button>
         <button class="aba-btn" data-aba="vinculacao">📍 Vínculo Local</button>
+        <button class="aba-btn" data-aba="locais">🏬 Locais</button>
     </div>
 
     <!-- ABA CÓDIGO X BALANÇA -->
@@ -533,7 +569,7 @@
         <div id="paginacaoAnalise" class="paginacao" style="display: none;"></div>
     </div>
 
-    <!-- ABA VALIDADE (lista de prioridade - lê da sheet Vinculacao) -->
+    <!-- ABA VALIDADE -->
     <div id="aba-validade" class="conteudo-aba">
         <div class="filtros">
             <div class="filtros-top">
@@ -591,6 +627,25 @@
 
         <div id="conteudoVinculacao"></div>
     </div>
+
+    <!-- ABA LOCAIS -->
+    <div id="aba-locais" class="conteudo-aba">
+        <div class="filtros">
+            <div class="filtros-top">
+                <div><label>🔍 Buscar por código ou descrição</label><input type="text" id="buscaLocais" placeholder="Ex: A5, geladeira"></div>
+                <div class="stats" id="statsLocais">0 locais</div>
+            </div>
+            <div class="filtros-botoes">
+                <button id="btnNovoLocal" class="btn-acao" style="background:#2563eb; color:white; border-color:#2563eb;">➕ Novo local</button>
+                <button id="btnSincLocais" class="btn-acao">☁️ Sincronizar (<span id="qtdLocaisPend">0</span>)</button>
+                <button id="btnRelerLocais" class="btn-acao">🔄 Recarregar da planilha</button>
+                <label class="btn-acao" style="cursor:pointer;">
+                    <input type="checkbox" id="chkMostrarInativos" style="margin-right:6px;"> Mostrar inativos
+                </label>
+            </div>
+        </div>
+        <div id="conteudoLocais"></div>
+    </div>
 </div>
 
 <!-- Modal QR -->
@@ -622,6 +677,26 @@
     </div>
 </div>
 
+<!-- Modal Editar Local -->
+<div id="modalLocal" class="modal">
+    <div class="modal-conteudo" style="width:min(92vw, 420px); text-align:left;">
+        <h3 id="tituloModalLocal" style="text-align:center; margin-bottom:16px;">Novo local</h3>
+        <label style="display:block; font-size:0.85rem; color:#475569; font-weight:600; margin-bottom:4px;">Código</label>
+        <input type="text" id="inputLocalCodigo" placeholder="Ex: A5-B2" style="width:100%; padding:10px; border:1.5px solid #cbd5e1; border-radius:10px; margin-bottom:12px;">
+        <label style="display:block; font-size:0.85rem; color:#475569; font-weight:600; margin-bottom:4px;">Descrição</label>
+        <input type="text" id="inputLocalDescricao" placeholder="Ex: Geladeira 2 — corredor 5" style="width:100%; padding:10px; border:1.5px solid #cbd5e1; border-radius:10px; margin-bottom:12px;">
+        <label style="display:block; font-size:0.85rem; color:#475569; font-weight:600; margin-bottom:4px;">Observação</label>
+        <input type="text" id="inputLocalObs" placeholder="Ex: Prateleira inferior" style="width:100%; padding:10px; border:1.5px solid #cbd5e1; border-radius:10px; margin-bottom:12px;">
+        <label style="display:flex; align-items:center; gap:8px; font-size:0.9rem; margin-bottom:16px;">
+            <input type="checkbox" id="inputLocalAtivo" checked> Local ativo
+        </label>
+        <div style="display:flex; gap:8px; justify-content:flex-end;">
+            <button id="btnCancelarLocal" style="background:#e2e8f0; color:#0f172a;">Cancelar</button>
+            <button id="btnSalvarLocal">Salvar</button>
+        </div>
+    </div>
+</div>
+
 <script>
     // ==================== CONFIGURAÇÕES ====================
     const SHEET_ID = '1sxetmK0BUCeh1mk-_cGxESgn7XJSiVQ9R0UQQtXAEEY';
@@ -630,12 +705,14 @@
     const SHEET_ATUALIZADA = 'Atualizada';
     const SHEET_REFERENCIA = 'REFERENCIA';
     const SHEET_VINCULACAO = 'Vinculacao';
+    const SHEET_LOCAIS = 'Locais';
 
     const URL_CODBALANCA = `https://opensheet.elk.sh/${SHEET_ID}/${SHEET_CODBALANCA}`;
     const URL_ESTOQUE    = `https://opensheet.elk.sh/${SHEET_ID}/${SHEET_ESTOQUE}`;
     const URL_ATUALIZADA = `https://opensheet.elk.sh/${SHEET_ID}/${SHEET_ATUALIZADA}`;
     const URL_REFERENCIA = `https://opensheet.elk.sh/${SHEET_ID}/${SHEET_REFERENCIA}`;
     const URL_VINCULACAO = `https://opensheet.elk.sh/${SHEET_ID}/${SHEET_VINCULACAO}`;
+    const URL_LOCAIS     = `https://opensheet.elk.sh/${SHEET_ID}/${SHEET_LOCAIS}`;
 
     let dadosCodBalanca = [];
     let dadosEstoque = [];
@@ -677,7 +754,8 @@
         estoquevirtual: document.getElementById('aba-estoquevirtual'),
         analise: document.getElementById('aba-analise'),
         validade: document.getElementById('aba-validade'),
-        vinculacao: document.getElementById('aba-vinculacao')
+        vinculacao: document.getElementById('aba-vinculacao'),
+        locais: document.getElementById('aba-locais')
     };
     const globalSearch = document.getElementById('globalSearch');
     const limiteEstoqueInput = document.getElementById('limiteEstoque');
@@ -816,8 +894,7 @@
         aplicarFiltroAnalise();
     }
 
-    // ==================== NORMALIZAÇÃO DE CÓDIGOS (REFERENCIA como ponte) ====================
-    // Dado QUALQUER código (EAN, SKU, COD interno), retorna o COD interno.
+    // ==================== NORMALIZAÇÃO DE CÓDIGOS ====================
     function obterCodigoInterno(codigo) {
         if (!codigo) return null;
         const raw = codigo.toString().trim();
@@ -841,7 +918,6 @@
         return ref ? (ref.PRODUTO || '') : '';
     }
 
-    // Chave do mapa de vinculações — sempre o COD interno
     function chaveVinculo(v) {
         if (v.CodigoInterno) return v.CodigoInterno.toString().replace(/^0+/, '');
         if (v.codigoInterno) return v.codigoInterno.toString().replace(/^0+/, '');
@@ -1113,7 +1189,6 @@
             const ultimaCompraDate = parseDataBrasil(ultimaCompraStr);
             const diasUltimaCompra = ultimaCompraDate ? Math.floor((hoje - ultimaCompraDate) / (1000 * 3600 * 24)) : null;
 
-            // Cruzamento com vinculação (por COD interno via REFERENCIA)
             const vinculos = obterVinculacoesDoProduto(cod);
             const locaisHTML = vinculos.length
                 ? vinculos.map(formatarLocalVinculo).join('<br>')
@@ -1264,7 +1339,7 @@
         } else document.getElementById('paginacaoAnalise').style.display = 'none';
     }
 
-    // ==================== ABA VALIDADE (lê da sheet Vinculacao) ====================
+    // ==================== ABA VALIDADE ====================
     function statusDoItem(dias) {
         if (dias === null || dias === undefined) return { texto: 'Sem data', cor: '#94a3b8' };
         if (dias < 0) return { texto: 'Vencido', cor: '#6b7280' };
@@ -1308,7 +1383,6 @@
         const hoje = new Date();
         hoje.setHours(0, 0, 0, 0);
 
-        // Fonte de verdade: sheet Vinculacao. Se vazia, cai no IndexedDB local.
         const fonte = (dadosVinculacaoSheet && dadosVinculacaoSheet.length)
             ? dadosVinculacaoSheet
             : vinculacaoFila;
@@ -1424,7 +1498,6 @@
 
         let filtrados = coletarValidadeDaSheet();
 
-        // Enriquece com fornecedor do EstoqueVirtual
         const mapaForn = new Map();
         dadosEstoque.forEach(e => {
             const c = (e.Codigo || '').toString();
@@ -1698,6 +1771,9 @@
             document.getElementById('buscaValidadeFornecedor').value = '';
             document.getElementById('buscaValidadeLocal').value = '';
             aplicarFiltroValidade();
+        } else if (abaAtiva === 'locais') {
+            document.getElementById('buscaLocais').value = termo;
+            aplicarFiltroLocais();
         }
     });
 
@@ -1717,6 +1793,8 @@
             renderizarEstoque();
         } else if (abaId === 'validade') {
             carregarVinculacaoSheet().then(() => aplicarFiltroValidade());
+        } else if (abaId === 'locais') {
+            carregarLocaisDaSheet();
         }
     }
 
@@ -1733,7 +1811,7 @@
     const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyOX3a0-_Tb4xOiScklwNMi_SSNTxdBuQSehD3-AqAkgbNPi8-MCblFSVbyBrbBk8yX/exec';
     const TOKEN_VINC = 'teste000';
 
-    const dbPromise = idb.openDB('gestao-setor', 1, {
+    const dbPromise = idb.openDB('gestao-setor', 2, {
         upgrade(db) {
             if (!db.objectStoreNames.contains('vinculacoes')) {
                 const s = db.createObjectStore('vinculacoes', { keyPath: 'id', autoIncrement: true });
@@ -1743,6 +1821,9 @@
             }
             if (!db.objectStoreNames.contains('config')) {
                 db.createObjectStore('config', { keyPath: 'chave' });
+            }
+            if (!db.objectStoreNames.contains('locais')) {
+                db.createObjectStore('locais', { keyPath: 'codigo' });
             }
         }
     });
@@ -1756,17 +1837,23 @@
         async setConfig(k, v)   { return (await dbPromise).put('config', { chave: k, valor: v }); }
     };
 
+    const dbLocais = {
+        async getAll()        { return (await dbPromise).getAll('locais'); },
+        async get(codigo)     { return (await dbPromise).get('locais', codigo); },
+        async put(rec)        { return (await dbPromise).put('locais', rec); },
+        async del(codigo)     { return (await dbPromise).delete('locais', codigo); }
+    };
+
     let scannerInstance = null;
     let modoScanner = null;
     let vinculacaoFila = [];
     let localVinculoAtual = '';
 
-    // Cooldown do scanner
     let ultimaLeitura = 0;
     let ultimoCodigo = '';
     const COOLDOWN_MS = 1800;
 
-    // ==================== REFERENCIA (busca direta) ====================
+    // ==================== REFERENCIA ====================
     function buscarReferencia(codigo) {
         if (!codigo) return null;
         const raw = codigo.toString().trim();
@@ -1815,7 +1902,28 @@
     }
 
     async function definirLocalVinculo(texto) {
-        localVinculoAtual = texto.trim();
+        const codigo = texto.trim();
+        if (!codigo) return;
+
+        if (mapaLocalPorCodigo.size && !mapaLocalPorCodigo.get(codigo) && !mapaLocalPorCodigo.get(codigo.toLowerCase())) {
+            const criar = confirm(`O local "${codigo}" ainda não está cadastrado.\n\nDeseja cadastrá-lo agora?`);
+            if (criar) {
+                const novo = {
+                    codigo,
+                    descricao: '',
+                    observacao: '',
+                    ativo: true,
+                    atualizadoEm: new Date().toISOString(),
+                    pendente: true
+                };
+                await dbLocais.put(novo);
+                listaLocais.push(novo);
+                atualizarMapaLocal();
+                aplicarFiltroLocais();
+            }
+        }
+
+        localVinculoAtual = codigo;
         await db.setConfig('localAtual', localVinculoAtual);
         renderizarVinculacao();
     }
@@ -1914,6 +2022,251 @@
     window.removerVinculo = removerVinculo;
     window.atualizarValidadeVinculo = atualizarValidadeVinculo;
 
+    // ==================== ABA LOCAIS ====================
+    let listaLocais = [];
+    let localEmEdicao = null;
+    let mapaLocalPorCodigo = new Map();
+
+    async function carregarLocaisDaSheet() {
+        try {
+            const resp = await fetch(URL_LOCAIS);
+            if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+            const data = await resp.json();
+
+            const daSheet = data.map(item => {
+                const ativo = ((item['Ativo'] || '').toString().trim().toUpperCase() !== 'NÃO')
+                           && ((item['Ativo'] || '').toString().trim().toUpperCase() !== 'NAO');
+                return {
+                    codigo:      (item['Codigo']      || '').toString().trim(),
+                    descricao:   (item['Descricao']   || '').toString().trim(),
+                    ativo,
+                    observacao:  (item['Observacao']  || '').toString().trim(),
+                    atualizadoEm:(item['AtualizadoEm']|| '').toString().trim(),
+                    pendente: false
+                };
+            }).filter(l => l.codigo);
+
+            const locaisLocais = await dbLocais.getAll();
+            const pendentes = locaisLocais.filter(l => l.pendente);
+
+            const mapa = new Map();
+            daSheet.forEach(l => mapa.set(l.codigo, l));
+            pendentes.forEach(l => mapa.set(l.codigo, l));
+
+            listaLocais = Array.from(mapa.values());
+            atualizarMapaLocal();
+            aplicarFiltroLocais();
+            console.log(`✓ Locais: ${listaLocais.length} (${pendentes.length} pendentes)`);
+        } catch (err) {
+            console.warn('Sheet Locais indisponível:', err.message);
+            listaLocais = await dbLocais.getAll();
+            atualizarMapaLocal();
+            aplicarFiltroLocais();
+        }
+    }
+
+    function atualizarMapaLocal() {
+        mapaLocalPorCodigo.clear();
+        listaLocais.forEach(l => {
+            mapaLocalPorCodigo.set(l.codigo, l);
+            mapaLocalPorCodigo.set(l.codigo.toLowerCase(), l);
+        });
+    }
+
+    function aplicarFiltroLocais() {
+        const termo = (document.getElementById('buscaLocais').value || '').trim().toLowerCase();
+        const mostrarInativos = document.getElementById('chkMostrarInativos').checked;
+
+        let filtrados = listaLocais.slice();
+        if (!mostrarInativos) filtrados = filtrados.filter(l => l.ativo);
+        if (termo) {
+            filtrados = filtrados.filter(l =>
+                l.codigo.toLowerCase().includes(termo) ||
+                (l.descricao || '').toLowerCase().includes(termo) ||
+                (l.observacao || '').toLowerCase().includes(termo)
+            );
+        }
+        filtrados.sort((a, b) => {
+            if (a.ativo !== b.ativo) return a.ativo ? -1 : 1;
+            return a.codigo.localeCompare(b.codigo);
+        });
+
+        const pendentes = listaLocais.filter(l => l.pendente).length;
+        const qtdEl = document.getElementById('qtdLocaisPend');
+        if (qtdEl) qtdEl.innerText = pendentes;
+        const statsEl = document.getElementById('statsLocais');
+        if (statsEl) statsEl.innerText = `${filtrados.length} locais`;
+
+        renderizarLocais(filtrados);
+    }
+
+    function renderizarLocais(lista) {
+        const dados = lista || listaLocais;
+        const div = document.getElementById('conteudoLocais');
+
+        if (!dados.length) {
+            div.innerHTML = '<div class="vazio">Nenhum local cadastrado. Clique em "➕ Novo local".</div>';
+            return;
+        }
+
+        let html = '';
+        dados.forEach(l => {
+            const classes = [
+                'local-item',
+                l.ativo ? '' : 'inativo',
+                l.pendente ? 'pendente' : ''
+            ].filter(Boolean).join(' ');
+
+            const badgePend = l.pendente ? '<span class="badge-pend">⏳ pendente</span>' : '';
+            const badgeInativo = !l.ativo ? '<span class="badge-inativo">(inativo)</span>' : '';
+
+            html += `<div class="${classes}">
+                <div class="info">
+                    <div class="codigo">${l.codigo} ${badgePend} ${badgeInativo}</div>
+                    ${l.descricao ? `<div class="desc">${l.descricao}</div>` : ''}
+                    ${l.observacao ? `<div class="obs">${l.observacao}</div>` : ''}
+                </div>
+                <div class="acoes">
+                    <button class="btn-acao btn-editar-local" data-codigo="${l.codigo}">✏️ Editar</button>
+                    <button class="btn-acao btn-alternar-local" data-codigo="${l.codigo}">${l.ativo ? '🚫 Desativar' : '✅ Ativar'}</button>
+                    <button class="btn-acao btn-excluir-local" data-codigo="${l.codigo}" style="color:#b91c1c;">🗑️ Excluir</button>
+                </div>
+            </div>`;
+        });
+        div.innerHTML = html;
+
+        div.querySelectorAll('.btn-editar-local').forEach(btn => {
+            btn.addEventListener('click', () => abrirModalLocal(btn.dataset.codigo));
+        });
+        div.querySelectorAll('.btn-alternar-local').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const cod = btn.dataset.codigo;
+                const local = listaLocais.find(l => l.codigo === cod);
+                if (!local) return;
+                local.ativo = !local.ativo;
+                local.pendente = true;
+                local.atualizadoEm = new Date().toISOString();
+                await dbLocais.put(local);
+                atualizarMapaLocal();
+                aplicarFiltroLocais();
+            });
+        });
+        div.querySelectorAll('.btn-excluir-local').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const cod = btn.dataset.codigo;
+                if (!confirm(`Excluir o local "${cod}"?\n\n⚠️ Isso remove apenas do cadastro. As vinculações existentes continuam na sheet.`)) return;
+                await dbLocais.del(cod);
+                listaLocais = listaLocais.filter(l => l.codigo !== cod);
+                atualizarMapaLocal();
+                aplicarFiltroLocais();
+            });
+        });
+    }
+
+    function abrirModalLocal(codigo) {
+        localEmEdicao = codigo || null;
+        const modal = document.getElementById('modalLocal');
+        const titulo = document.getElementById('tituloModalLocal');
+        const inCodigo = document.getElementById('inputLocalCodigo');
+        const inDesc = document.getElementById('inputLocalDescricao');
+        const inObs = document.getElementById('inputLocalObs');
+        const inAtivo = document.getElementById('inputLocalAtivo');
+
+        if (localEmEdicao) {
+            const l = listaLocais.find(x => x.codigo === localEmEdicao);
+            titulo.textContent = 'Editar local';
+            inCodigo.value = l.codigo;
+            inCodigo.disabled = true;
+            inDesc.value = l.descricao || '';
+            inObs.value = l.observacao || '';
+            inAtivo.checked = l.ativo;
+        } else {
+            titulo.textContent = 'Novo local';
+            inCodigo.value = '';
+            inCodigo.disabled = false;
+            inDesc.value = '';
+            inObs.value = '';
+            inAtivo.checked = true;
+        }
+        modal.classList.add('ativo');
+        setTimeout(() => inCodigo.focus(), 100);
+    }
+
+    function fecharModalLocal() {
+        document.getElementById('modalLocal').classList.remove('ativo');
+        localEmEdicao = null;
+    }
+
+    async function salvarLocalModal() {
+        const codigo = document.getElementById('inputLocalCodigo').value.trim();
+        const descricao = document.getElementById('inputLocalDescricao').value.trim();
+        const observacao = document.getElementById('inputLocalObs').value.trim();
+        const ativo = document.getElementById('inputLocalAtivo').checked;
+
+        if (!codigo) { alert('Digite um código para o local.'); return; }
+
+        if (!localEmEdicao && listaLocais.some(l => l.codigo === codigo)) {
+            if (!confirm(`Já existe um local com o código "${codigo}". Deseja sobrescrever?`)) return;
+        }
+
+        const registro = {
+            codigo,
+            descricao,
+            observacao,
+            ativo,
+            atualizadoEm: new Date().toISOString(),
+            pendente: true
+        };
+
+        await dbLocais.put(registro);
+
+        const idx = listaLocais.findIndex(l => l.codigo === codigo);
+        if (idx >= 0) listaLocais[idx] = registro;
+        else listaLocais.push(registro);
+
+        atualizarMapaLocal();
+        fecharModalLocal();
+        aplicarFiltroLocais();
+    }
+
+    async function sincronizarLocais() {
+        const pendentes = listaLocais.filter(l => l.pendente);
+        if (!pendentes.length) { alert('Nenhum local pendente para sincronizar.'); return; }
+        if (!navigator.onLine) { alert('Sem internet. Tente novamente quando estiver online.'); return; }
+
+        const btn = document.getElementById('btnSincLocais');
+        btn.disabled = true;
+        btn.style.opacity = '0.6';
+
+        try {
+            const resp = await fetch(APPS_SCRIPT_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                body: JSON.stringify({
+                    token: TOKEN_VINC,
+                    tipo: 'locais',
+                    locais: pendentes.map(({ pendente, ...l }) => l)
+                })
+            });
+            const json = await resp.json();
+            if (json.ok) {
+                for (const p of pendentes) {
+                    p.pendente = false;
+                    await dbLocais.put(p);
+                }
+                await carregarLocaisDaSheet();
+                alert(`✓ ${json.inseridos || 0} inserido(s), ${json.atualizados || 0} atualizado(s).`);
+            } else {
+                alert('Falha: ' + (json.erro || 'desconhecido'));
+            }
+        } catch (e) {
+            alert('Erro de rede: ' + e.message);
+        } finally {
+            btn.disabled = false;
+            btn.style.opacity = '1';
+        }
+    }
+
     // ==================== SCANNER ====================
     async function abrirScanner(modo) {
         modoScanner = modo;
@@ -1977,7 +2330,7 @@
     }
     window.fecharScanner = fecharScanner;
 
-    // ==================== SINCRONIZAÇÃO ====================
+    // ==================== SINCRONIZAÇÃO VINCULAÇÃO ====================
     async function sincronizarVinculacao() {
         const pendentes = vinculacaoFila.filter(r => r.status === 'pendente');
         if (!pendentes.length) { alert('Nada para sincronizar.'); return; }
@@ -2000,6 +2353,7 @@
                 headers: { 'Content-Type': 'text/plain;charset=utf-8' },
                 body: JSON.stringify({
                     token: TOKEN_VINC,
+                    tipo: 'vinculacao',
                     registros: pendentes.map(({ id, status, ...r }) => r)
                 })
             });
@@ -2068,8 +2422,26 @@
         if (e.key === 'Enter') document.getElementById('btnProdutoManual').click();
     });
 
+    // ==================== EVENTOS DA ABA LOCAIS ====================
+    document.getElementById('buscaLocais').addEventListener('input', aplicarFiltroLocais);
+    document.getElementById('chkMostrarInativos').addEventListener('change', aplicarFiltroLocais);
+    document.getElementById('btnNovoLocal').addEventListener('click', () => abrirModalLocal(null));
+    document.getElementById('btnCancelarLocal').addEventListener('click', fecharModalLocal);
+    document.getElementById('btnSalvarLocal').addEventListener('click', salvarLocalModal);
+    document.getElementById('btnSincLocais').addEventListener('click', sincronizarLocais);
+    document.getElementById('btnRelerLocais').addEventListener('click', async () => {
+        const btn = document.getElementById('btnRelerLocais');
+        btn.disabled = true;
+        btn.textContent = '🔄 Recarregando…';
+        await carregarLocaisDaSheet();
+        aplicarFiltroLocais();
+        btn.disabled = false;
+        btn.textContent = '🔄 Recarregar da planilha';
+    });
+
     window.addEventListener('online', () => {
         if (vinculacaoFila.some(r => r.status === 'pendente')) sincronizarVinculacao();
+        if (listaLocais.some(l => l.pendente)) sincronizarLocais();
     });
 
     // ==================== INICIALIZAÇÃO ====================
@@ -2079,7 +2451,8 @@
         carregarCodBalanca(),
         carregarEstoque(),
         carregarAnalise(),
-        carregarVinculacaoSheet()
+        carregarVinculacaoSheet(),
+        carregarLocaisDaSheet()
     ]).then(() => {
         console.log('Carregamento concluído');
         carregarVinculacao().then(() => {
