@@ -634,6 +634,8 @@
     const URL_ESTOQUE = `https://opensheet.elk.sh/${SHEET_ID}/${SHEET_ESTOQUE}`;
     const URL_ATUALIZADA = `https://opensheet.elk.sh/${SHEET_ID}/${SHEET_ATUALIZADA}`;
     const URL_REFERENCIA = `https://opensheet.elk.sh/${SHEET_ID}/${SHEET_REFERENCIA}`;
+    const SHEET_VINCULACAO = 'Vinculacao';
+const URL_VINCULACAO = `https://opensheet.elk.sh/${SHEET_ID}/${SHEET_VINCULACAO}`;
 
     let dadosCodBalanca = [];
     let dadosEstoque = [];
@@ -641,6 +643,7 @@
     let mapaReferenciaSKU = new Map();
     let mapaReferenciaCOD = new Map();
     let ultimaAtualizacao = new Date();
+    let dadosVinculacaoSheet = [];   // dados vindos da sheet Vinculacao
 
     let ordenacao = {
         codbalanca: { coluna: 'Balanca', direcao: 'asc' },
@@ -731,6 +734,30 @@
     }
 
     // ==================== CARREGAMENTO ====================
+    async function carregarVinculacaoSheet() {
+    try {
+        const resp = await fetch(URL_VINCULACAO);
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        const data = await resp.json();
+
+        dadosVinculacaoSheet = data.map(item => ({
+            Local:        (item['Local']        || '').toString().trim(),
+            Codigo:       (item['Codigo']       || '').toString().trim(),
+            Produto:      (item['Produto']      || '').toString().trim(),
+            Validade:     (item['Validade']     || '').toString().trim(),
+            DataHora:     (item['DataHora']     || '').toString().trim(),
+            RecebidoEm:   (item['RecebidoEm']   || '').toString().trim(),
+            // opcionais — se você adicionar colunas na sheet depois
+            CodigoInterno: (item['CodigoInterno'] || item['COD'] || '').toString().trim(),
+            SKU:           (item['SKU'] || '').toString().trim()
+        })).filter(r => r.Codigo || r.CodigoInterno);
+
+        console.log(`✓ Vinculacao (sheet): ${dadosVinculacaoSheet.length} itens`);
+    } catch (err) {
+        console.warn('Sheet Vinculacao indisponível:', err.message);
+        dadosVinculacaoSheet = [];
+    }
+}
     async function carregarAtualizada() {
         try {
             const resp = await fetch(URL_ATUALIZADA);
@@ -1238,34 +1265,43 @@
         return { texto: 'OK', cor: '#10b981' };
     }
 
-    function coletarValidadeDaVinculacao() {
-        const hoje = new Date();
-        hoje.setHours(0, 0, 0, 0);
+    function coletarValidadeDaSheet() {
+    const hoje = new Date();
+    hoje.setHours(0, 0, 0, 0);
 
-        return vinculacaoFila.map(v => {
-            let dias = null;
-            let dataObj = null;
-            if (v.validade) {
-                const partes = v.validade.split('-');
-                if (partes.length === 3) {
-                    dataObj = new Date(+partes[0], +partes[1] - 1, +partes[2]);
-                    dias = Math.ceil((dataObj - hoje) / (1000 * 60 * 60 * 24));
-                }
+    return dadosVinculacaoSheet.map((v, idx) => {
+        // A sheet grava Validade no formato ISO (YYYY-MM-DD) ou BR (DD/MM/YYYY)
+        let dataObj = null;
+        let dias = null;
+        const valStr = v.Validade || '';
+
+        if (valStr) {
+            if (/^\d{4}-\d{2}-\d{2}/.test(valStr)) {
+                const partes = valStr.substring(0, 10).split('-');
+                dataObj = new Date(+partes[0], +partes[1] - 1, +partes[2]);
+            } else if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(valStr)) {
+                const partes = valStr.split('/');
+                dataObj = new Date(+partes[2], +partes[1] - 1, +partes[0]);
             }
-            return {
-                id: v.id,
-                codigo: v.codigo || v.codigoInterno || '',
-                codigoInterno: v.codigoInterno || '',
-                sku: v.sku || '',
-                produto: v.produto || '',
-                local: v.local || '—',
-                validadeStr: v.validade || '',
-                dataValidade: dataObj,
-                diasRestantes: dias,
-                status: v.status
-            };
-        }).filter(r => r.codigo || r.codigoInterno);
-    }
+            if (dataObj && !isNaN(dataObj.getTime())) {
+                dias = Math.ceil((dataObj - hoje) / (1000 * 60 * 60 * 24));
+            }
+        }
+
+        return {
+            id: idx,
+            codigo: v.Codigo || v.CodigoInterno || '',
+            codigoInterno: v.CodigoInterno || '',
+            sku: v.SKU || '',
+            produto: v.Produto || '',
+            local: v.Local || '—',
+            validadeStr: valStr.substring(0, 10),
+            dataValidade: dataObj,
+            diasRestantes: dias,
+            dataHora: v.DataHora || ''
+        };
+    }).filter(r => r.codigo || r.codigoInterno);
+}
 
     function aplicarFiltroValidade() {
         const termo = (document.getElementById('buscaValidade').value || '').trim().toLowerCase();
@@ -1337,75 +1373,82 @@
     }
 
     function renderizarValidade() {
-        const { dadosFiltrados, paginaAtual, totalPaginas } = paginacao.validade;
-        const inicio = (paginaAtual - 1) * ITENS_POR_PAGINA;
-        const ordenados = dadosFiltrados.slice(inicio, inicio + ITENS_POR_PAGINA);
-        const conteudoDiv = document.getElementById('conteudoValidade');
+    const { dadosFiltrados, paginaAtual, totalPaginas } = paginacao.validade;
+    const inicio = (paginaAtual - 1) * ITENS_POR_PAGINA;
+    const ordenados = dadosFiltrados.slice(inicio, inicio + ITENS_POR_PAGINA);
+    const conteudoDiv = document.getElementById('conteudoValidade');
 
-        if (!ordenados.length) {
-            conteudoDiv.innerHTML = '<div class="vazio">Nenhum item com validade registrada. Use a aba 📍 Vínculo Local para registrar.</div>';
-            document.getElementById('paginacaoValidade').style.display = 'none';
-            return;
-        }
-
-        if (visao.validade === 'tabela') {
-            let html = `<div class="tabela-wrapper"><table id="tabela-validade"><thead>`;
-            const colunas = [
-                { chave: 'diasRestantes', label: 'Dias' },
-                { chave: 'validadeStr',   label: 'Validade' },
-                { chave: 'local',         label: 'Local' },
-                { chave: 'codigo',        label: 'Código' },
-                { chave: 'codigoInterno', label: 'Cód. interno' },
-                { chave: 'produto',       label: 'Produto' },
-                { chave: 'fornecedor',    label: 'Fornecedor' },
-                { chave: 'status',        label: 'Sync' }
-            ];
-            colunas.forEach(c => {
-                html += `<th>${c.label} <span class="ordenar-btn" data-coluna="${c.chave}">⇅</span></th>`;
-            });
-            html += `</thead><tbody>`;
-            for (const i of ordenados) {
-                const st = statusDoItem(i.diasRestantes);
-                html += `<tr style="border-left: 6px solid ${st.cor};">
-                    <td class="qtde" style="color:${st.cor}; font-weight:600;">${i.diasRestantes === null ? '—' : i.diasRestantes}</td>
-                    <td>${i.validadeStr ? i.validadeStr.split('-').reverse().join('/') : '—'}</td>
-                    <td class="codigo">${i.local}</td>
-                    <td class="codigo">${i.codigo}</td>
-                    <td class="codigo">${i.codigoInterno || ''}</td>
-                    <td>${i.produto || '<em>desconhecido</em>'}</td>
-                    <td>${i.fornecedor || ''}</td>
-                    <td>${i.status === 'sincronizado' ? '✓' : '⏳'}</td>
-                </tr>`;
-            }
-            html += `</tbody></table></div>`;
-            conteudoDiv.innerHTML = html;
-            attachOrdenacao('tabela-validade', 'validade');
-        } else {
-            let html = `<div class="cards-view">`;
-            for (const i of ordenados) {
-                const st = statusDoItem(i.diasRestantes);
-                html += `<div class="card-item" style="border-left-color:${st.cor};">
-                    <div class="card-linha"><span class="label">Status:</span><span class="valor" style="background:${st.cor}; color:white; padding:2px 10px; border-radius:12px;">${st.texto}${i.diasRestantes !== null ? ' · ' + i.diasRestantes + 'd' : ''}</span></div>
-                    <div class="card-linha"><span class="label">Validade:</span><span class="valor">${i.validadeStr ? i.validadeStr.split('-').reverse().join('/') : '—'}</span></div>
-                    <div class="card-linha"><span class="label">Local:</span><span class="valor vinc-local">${i.local}</span></div>
-                    <div class="card-linha"><span class="label">Código:</span><span class="valor">${i.codigo}</span></div>
-                    <div class="card-linha"><span class="label">Cód. interno:</span><span class="valor">${i.codigoInterno || '—'}</span></div>
-                    <div class="card-linha"><span class="label">Produto:</span><span class="valor">${i.produto || '<em>desconhecido</em>'}</span></div>
-                    <div class="card-linha"><span class="label">Fornecedor:</span><span class="valor">${i.fornecedor || '—'}</span></div>
-                </div>`;
-            }
-            html += `</div>`;
-            conteudoDiv.innerHTML = html;
-        }
-
-        if (totalPaginas > 1) {
-            const pagDiv = document.getElementById('paginacaoValidade');
-            pagDiv.style.display = 'flex';
-            pagDiv.innerHTML = gerarBotoesPaginacao(paginaAtual, totalPaginas, 'validade');
-        } else {
-            document.getElementById('paginacaoValidade').style.display = 'none';
-        }
+    if (!ordenados.length) {
+        conteudoDiv.innerHTML = '<div class="vazio">Nenhum item com validade na planilha. Registre na aba 📍 Vínculo Local e sincronize.</div>';
+        document.getElementById('paginacaoValidade').style.display = 'none';
+        return;
     }
+
+    if (visao.validade === 'tabela') {
+        let html = `<div class="tabela-wrapper"><table id="tabela-validade"><thead>`;
+        const colunas = [
+            { chave: 'diasRestantes', label: 'Dias' },
+            { chave: 'validadeStr',   label: 'Validade' },
+            { chave: 'local',         label: 'Local' },
+            { chave: 'codigo',        label: 'Código' },
+            { chave: 'codigoInterno', label: 'Cód. interno' },
+            { chave: 'produto',       label: 'Produto' },
+            { chave: 'fornecedor',    label: 'Fornecedor' },
+            { chave: 'dataHora',      label: 'Registrado em' }
+        ];
+        colunas.forEach(c => {
+            html += `<th>${c.label} <span class="ordenar-btn" data-coluna="${c.chave}">⇅</span></th>`;
+        });
+        html += `</thead><tbody>`;
+        for (const i of ordenados) {
+            const st = statusDoItem(i.diasRestantes);
+            const dataHoraFmt = i.dataHora
+                ? new Date(i.dataHora).toLocaleString('pt-BR')
+                : '—';
+            html += `<tr style="border-left: 6px solid ${st.cor};">
+                <td class="qtde" style="color:${st.cor}; font-weight:600;">${i.diasRestantes === null ? '—' : i.diasRestantes}</td>
+                <td>${i.validadeStr ? i.validadeStr.split('-').reverse().join('/') : '—'}</td>
+                <td class="codigo">${i.local}</td>
+                <td class="codigo">${i.codigo}</td>
+                <td class="codigo">${i.codigoInterno || ''}</td>
+                <td>${i.produto || '<em>desconhecido</em>'}</td>
+                <td>${i.fornecedor || ''}</td>
+                <td>${dataHoraFmt}</td>
+            </tr>`;
+        }
+        html += `</tbody></table></div>`;
+        conteudoDiv.innerHTML = html;
+        attachOrdenacao('tabela-validade', 'validade');
+    } else {
+        let html = `<div class="cards-view">`;
+        for (const i of ordenados) {
+            const st = statusDoItem(i.diasRestantes);
+            const dataHoraFmt = i.dataHora
+                ? new Date(i.dataHora).toLocaleString('pt-BR')
+                : '—';
+            html += `<div class="card-item" style="border-left-color:${st.cor};">
+                <div class="card-linha"><span class="label">Status:</span><span class="valor" style="background:${st.cor}; color:white; padding:2px 10px; border-radius:12px;">${st.texto}${i.diasRestantes !== null ? ' · ' + i.diasRestantes + 'd' : ''}</span></div>
+                <div class="card-linha"><span class="label">Validade:</span><span class="valor">${i.validadeStr ? i.validadeStr.split('-').reverse().join('/') : '—'}</span></div>
+                <div class="card-linha"><span class="label">Local:</span><span class="valor vinc-local">${i.local}</span></div>
+                <div class="card-linha"><span class="label">Código:</span><span class="valor">${i.codigo}</span></div>
+                <div class="card-linha"><span class="label">Cód. interno:</span><span class="valor">${i.codigoInterno || '—'}</span></div>
+                <div class="card-linha"><span class="label">Produto:</span><span class="valor">${i.produto || '<em>desconhecido</em>'}</span></div>
+                <div class="card-linha"><span class="label">Fornecedor:</span><span class="valor">${i.fornecedor || '—'}</span></div>
+                <div class="card-linha"><span class="label">Registrado em:</span><span class="valor">${dataHoraFmt}</span></div>
+            </div>`;
+        }
+        html += `</div>`;
+        conteudoDiv.innerHTML = html;
+    }
+
+    if (totalPaginas > 1) {
+        const pagDiv = document.getElementById('paginacaoValidade');
+        pagDiv.style.display = 'flex';
+        pagDiv.innerHTML = gerarBotoesPaginacao(paginaAtual, totalPaginas, 'validade');
+    } else {
+        document.getElementById('paginacaoValidade').style.display = 'none';
+    }
+}
 
     // ==================== FUNÇÕES GLOBAIS ====================
     function attachQrEvents() {
@@ -1495,10 +1538,15 @@
         });
     });
 
-    document.getElementById('btnAtualizarValidade').addEventListener('click', () => {
-        reconstruirMapaVinculacoes();
-        aplicarFiltroValidade();
-    });
+    document.getElementById('btnAtualizarValidade').addEventListener('click', async () => {
+    const btn = document.getElementById('btnAtualizarValidade');
+    btn.disabled = true;
+    btn.textContent = '🔄 Atualizando…';
+    await carregarVinculacaoSheet();
+    aplicarFiltroValidade();
+    btn.disabled = false;
+    btn.textContent = '🔄 Atualizar da vinculação';
+});
 
     document.getElementById('btnConfigColunas').addEventListener('click', abrirModalColunas);
     document.getElementById('fecharModal').addEventListener('click', fecharModalColunas);
@@ -1558,9 +1606,8 @@
             reconstruirMapaVinculacoes();
             renderizarEstoque();
         } else if (abaId === 'validade') {
-            reconstruirMapaVinculacoes();
-            aplicarFiltroValidade();
-        }
+    carregarVinculacaoSheet().then(() => aplicarFiltroValidade());
+}
     }
 
     abaBtns.forEach(btn => btn.addEventListener('click', () => trocarAba(btn.dataset.aba)));
@@ -1978,17 +2025,18 @@
 
     // ==================== INICIALIZAÇÃO ====================
     Promise.all([
-        carregarAtualizada(),
-        carregarReferencia(),
-        carregarCodBalanca(),
-        carregarEstoque(),
-        carregarAnalise()
-    ]).then(() => {
-        console.log('Carregamento concluído');
-        carregarVinculacao().then(() => {
-            aplicarFiltroValidade();
-        });
+    carregarAtualizada(),
+    carregarReferencia(),
+    carregarCodBalanca(),
+    carregarEstoque(),
+    carregarAnalise(),
+    carregarVinculacaoSheet()          // ← novo
+]).then(() => {
+    console.log('Carregamento concluído');
+    carregarVinculacao().then(() => {
+        aplicarFiltroValidade();
     });
+});
 
     // ==================== SERVICE WORKER ====================
     if ('serviceWorker' in navigator) {
